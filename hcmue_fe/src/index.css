@@ -1,0 +1,61 @@
+/* Global style tokens and basic layout for the starter project shell. */
+:root {
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-primary: #0b3d91;
+  --color-accent: #1f6feb;
+  --color-text: #1f2937;
+  --color-border: #d1d9e6;
+  --shadow-md: 0 10px 24px rgba(11, 61, 145, 0.08);
+  font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text);
+  background: linear-gradient(180deg, #eef4ff 0%, var(--color-bg) 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app-card {
+  width: min(680px, 100%);
+  padding: 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+}
+
+.badge {
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4vw, 36px);
+  color: var(--color-primary);
+}
+
+p {
+  margin: 0;
+  line-height: 1.7;
+}
