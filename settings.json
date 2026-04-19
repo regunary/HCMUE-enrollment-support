@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/json",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run test:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(docker compose:*)",
+      "Bash(python manage.py migrate:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Read(.env)",
+      "Read(**/.env)",
+      "Read(**/secrets/**)"
+    ]
+  }
+}
