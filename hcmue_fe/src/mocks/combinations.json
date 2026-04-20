@@ -1,0 +1,5 @@
+[
+  { "code": "A00", "subjects": "toan,ly,hoa", "weights": "1,1,1" },
+  { "code": "A01", "subjects": "toan,ly,anh", "weights": "1,1,1" },
+  { "code": "D01", "subjects": "toan,van,anh", "weights": "1,1,1" }
+]

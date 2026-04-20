@@ -1,0 +1,23 @@
+[
+  {
+    "idNumber": "079300000001",
+    "priorityRegion": "KV1",
+    "priorityGroup": "UT1",
+    "graduationYear": 2025,
+    "scoreJson": "{\"toan\":8.2,\"ly\":7.8,\"hoa\":7.5}"
+  },
+  {
+    "idNumber": "079300000002",
+    "priorityRegion": "KV2",
+    "priorityGroup": "UT2",
+    "graduationYear": 2025,
+    "scoreJson": "{\"toan\":7.4,\"van\":8.1,\"anh\":7.7}"
+  },
+  {
+    "idNumber": "079300000003",
+    "priorityRegion": "KV3",
+    "priorityGroup": "UT0",
+    "graduationYear": 2024,
+    "scoreJson": "{\"van\":8.5,\"su\":7.9,\"dia\":8.0}"
+  }
+]

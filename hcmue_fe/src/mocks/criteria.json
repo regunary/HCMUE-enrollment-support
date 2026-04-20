@@ -1,0 +1,4 @@
+[
+  { "combinationCode": "A00", "rule": "toan >= 6 AND ly >= 6 AND hoa >= 6" },
+  { "combinationCode": "D01", "rule": "toan >= 5 AND van >= 6 AND anh >= 6" }
+]

@@ -1,0 +1,5 @@
+[
+  { "code": "7140201", "name": "Giáo dục Mầm non", "combinations": "C00,D01" },
+  { "code": "7480201", "name": "Công nghệ thông tin", "combinations": "A00,A01,D01" },
+  { "code": "7220201", "name": "Ngôn ngữ Anh", "combinations": "D01" }
+]
