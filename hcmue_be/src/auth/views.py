@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
+from rest_framework import serializers, status
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -34,6 +35,10 @@ class LogoutView(GenericAPIView):
     """POST /api/auth/logout/ — blacklist the refresh token."""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=inline_serializer('LogoutRequest', fields={'refresh': serializers.CharField()}),
+        responses={204: OpenApiResponse(description='Logged out successfully.')},
+    )
     def post(self, request):
         refresh_token = request.data.get('refresh')
         if not refresh_token:

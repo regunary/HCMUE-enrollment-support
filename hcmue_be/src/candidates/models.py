@@ -41,20 +41,91 @@ class CandidateLog(models.Model):
         db_table = 'candidate_log'
 
 
+class Region(AuditModel):
+    """
+    Master data for admission priority regions imported from the KV template.
+
+    Fields:
+        code: Region code from Excel column KV.
+        bonus_score: Priority score applied when a candidate references this region.
+        is_deleted: Soft-delete marker for keeping historical imports auditable.
+        deleted_at: Timestamp when the region was soft-deleted.
+    """
+
+    code        = models.CharField(max_length=20, primary_key=True)
+    bonus_score = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    is_deleted  = models.BooleanField(default=False)
+    deleted_at  = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'region'
+
+
 class RegionPriority(AuditModel):
+    """
+    Candidate-specific priority region and special group information.
+
+    Fields:
+        candidate: Candidate that owns this priority record.
+        region: Foreign key to Region, stored in the existing region_code DB column.
+        special_code: Optional priority group code from Excel column DT.
+        bonus_score: Region bonus score copied from Region at import time.
+
+    Properties:
+        region_code: Excel-facing KV code for callers that do not need the Region object.
+    """
+
     candidate    = models.OneToOneField(Candidate, on_delete=models.CASCADE, related_name='region_priority')
-    region_code  = models.CharField(max_length=5)   # 1, 2, 2NT, 3
+    # Reuse the existing region_code DB column while enforcing Region as master data.
+    region       = models.ForeignKey(Region, to_field='code', db_column='region_code', on_delete=models.PROTECT, related_name='candidate_priorities')
     special_code = models.CharField(max_length=10, null=True, blank=True)
     bonus_score  = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+
+    @property
+    def region_code(self):
+        # Keep callers working with the Excel-facing KV code instead of the Region object.
+        return self.region_id
+
+    @region_code.setter
+    def region_code(self, value):
+        self.region_id = value
 
     class Meta:
         db_table = 'region_priority'
 
 
+class RegionLog(models.Model):
+    """
+    Immutable audit snapshot for Region create/update/delete actions.
+
+    Fields:
+        region: Region row that was changed.
+        code: Region code at the time of the action.
+        bonus_score: Priority score at the time of the action.
+        is_deleted: Soft-delete state at the time of the action.
+        deleted_at: Soft-delete timestamp at the time of the action.
+        action: Audit action from ActionsChoices.
+        field_changed: Comma-separated list of changed fields.
+        create_date: Timestamp when the log row was written.
+    """
+
+    region        = models.ForeignKey(Region, on_delete=models.CASCADE, db_column='region_code')
+    code          = models.CharField(max_length=20)
+    bonus_score   = models.DecimalField(max_digits=4, decimal_places=2)
+    is_deleted    = models.BooleanField()
+    deleted_at    = models.DateTimeField(null=True, blank=True)
+    action        = models.CharField(max_length=10, choices=ActionsChoices.choices)
+    field_changed = models.CharField(max_length=500, null=True, blank=True)
+    create_date   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'region_log'
+
+
 class RegionPriorityLog(models.Model):
     region_priority = models.ForeignKey(RegionPriority, on_delete=models.CASCADE, db_column='region_priority_id')
     candidate_id    = models.UUIDField()
-    region_code     = models.CharField(max_length=5)
+    region_code     = models.CharField(max_length=20)
     special_code    = models.CharField(max_length=10, null=True, blank=True)
     bonus_score     = models.DecimalField(max_digits=4, decimal_places=2)
     action          = models.CharField(max_length=10, choices=ActionsChoices.choices)

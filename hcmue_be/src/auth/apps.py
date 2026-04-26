@@ -3,5 +3,5 @@ from django.apps import AppConfig
 
 class AuthConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name  = 'auth'
+    name  = 'src.auth'
     label = 'user_auth'  # avoid conflict with django.contrib.auth

@@ -47,12 +47,12 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    'auth',         # label: user_auth  (avoids django.contrib.auth conflict)
-    'programs',
-    'imports',
-    'candidates',
-    'aspirations',
-    'analytics',
+    'src.auth',         # label: user_auth  (avoids django.contrib.auth conflict)
+    'src.programs',
+    'src.imports',
+    'src.candidates',
+    'src.aspirations',
+    'src.analytics',
 ]
 
 AUTH_USER_MODEL = 'user_auth.User'
