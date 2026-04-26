@@ -304,14 +304,115 @@ Response `200` (ví dụ):
 
 ## combination
 
+### post: `/api/v1/combinations/`
+- Mô tả: Nhập tổ hợp thủ công từ form FE.
+- Body:
+```json
+{
+  "id": "A00",
+  "name": "Toán Lí Hóa",
+  "subjects": [
+    {
+      "score_type": "THPT",
+      "subject_id": "TO",
+      "weight": 1
+    },
+    {
+      "score_type": "THPT",
+      "subject_id": "LI",
+      "weight": 1
+    },
+    {
+      "score_type": "THPT",
+      "subject_id": "HO",
+      "weight": 1
+    }
+  ]
+}
+```
+
+FE mapping:
+- `id`: mã tổ hợp.
+- `name`: tên hiển thị optional.
+- `subjects[]`: danh sách dòng động. Mỗi dòng gồm:
+  - `score_type`: chọn từ `HOCBA | THPT | DGNL | CB`.
+  - `subject_id`: chọn từ danh mục môn học.
+  - `weight`: trọng số môn trong tổ hợp.
+
+Validation:
+- `id`: bắt buộc khi tạo mới, unique, không đổi khi update.
+- `subjects[].subject_id`: phải tồn tại trong danh mục môn học.
+- Không cho trùng `subject_id` trong cùng tổ hợp.
+- Tổng `weight` phải lớn hơn `0`.
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "A00",
+    "name": "Toán Lí Hóa",
+    "subjects": [
+      {
+        "score_type": "THPT",
+        "subject_id": "TO",
+        "weight": 1,
+        "position": 1
+      }
+    ]
+  }
+}
+```
+
+### patch: `/api/v1/combinations/{id}/`
+- Mô tả: Cập nhật tổ hợp thủ công. Field không gửi thì giữ nguyên. Nếu gửi `subjects`, API replace toàn bộ danh sách môn hiện có.
+- Body:
+```json
+{
+  "name": "Toán Văn",
+  "subjects": [
+    {
+      "score_type": "THPT",
+      "subject_id": "TO",
+      "weight": 1
+    },
+    {
+      "score_type": "THPT",
+      "subject_id": "VA",
+      "weight": 2
+    }
+  ]
+}
+```
+
+Response `200`: cùng shape với `post /api/v1/combinations/`.
+
+Validation error `400`:
+```json
+{
+  "success": false,
+  "error": "VALIDATION_ERROR",
+  "details": {
+    "id": ["Mã tổ hợp đã tồn tại."],
+    "subjects.0.subject_id": ["Môn học không tồn tại."],
+    "subjects.1": ["Trùng môn trong tổ hợp."]
+  }
+}
+```
+
 ### post: `/api/v1/combinations/import/`
 - Required columns: `MaTH, Mon1, Mon2, Mon3, TrongSo1, TrongSo2, TrongSo3`
+- Rule:
+  - Import Excel dùng format cũ, mỗi dòng có đúng 3 môn.
+  - `score_type` của các môn import mặc định là `THPT`.
+  - Import merge theo `MaTH`; nếu tổ hợp đã tồn tại thì replace danh sách môn theo file.
 - Error codes:
   - `FILE_INVALID`
   - `MISSING_REQUIRED_COLUMNS`
   - `CODE_REQUIRED`
   - `FIELD_REQUIRED`
   - `WEIGHTS_ZERO`
+  - `SUBJECT_NOT_FOUND`
   - `SUBJECTS_DUPLICATE`
 
 Response `200` (ví dụ):
@@ -326,25 +427,25 @@ Response `200` (ví dụ):
 ```
 
 ### get: `/api/v1/combinations/`
-- Mô tả: Lấy danh sách tổ hợp đã import (có phân trang).
+- Mô tả: Lấy danh sách tổ hợp đã import/nhập tay.
 - Dữ liệu trả về: đầy đủ tất cả trường của tổ hợp.
 
 Response `200` (ví dụ):
 ```json
 {
   "success": true,
-  "page": 1,
-  "page_size": 20,
-  "count": 2,
   "results": [
     {
-      "code": "A00",
-      "subject_1": "TO",
-      "subject_2": "LI",
-      "subject_3": "HO",
-      "weight_1": 1.0,
-      "weight_2": 1.0,
-      "weight_3": 1.0
+      "id": "A00",
+      "name": "Toán Lí Hóa",
+      "subjects": [
+        {
+          "score_type": "THPT",
+          "subject_id": "TO",
+          "weight": 1,
+          "position": 1
+        }
+      ]
     }
   ]
 }
