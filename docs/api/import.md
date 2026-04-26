@@ -28,6 +28,168 @@
 
 ## candidate
 
+### get: `/api/v1/candidates/regions/`
+- Mô tả: Lấy danh mục khu vực để FE hiển thị dropdown.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "code": "KV1",
+      "bonus_score": 0.25
+    }
+  ]
+}
+```
+
+### post: `/api/v1/candidates/regions/`
+- Mô tả: Thêm khu vực thủ công.
+- Body:
+```json
+{
+  "code": "KV1",
+  "bonus_score": 0.25
+}
+```
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "code": "KV1",
+    "bonus_score": 0.25
+  }
+}
+```
+
+### post: `/api/v1/candidates/regions/import/`
+- Mô tả: Nhập danh mục khu vực trước khi nhập thông tin thí sinh.
+- Required columns: `KV, DiemUT`
+- Rule:
+  - `KV` là mã khu vực tự do, unique theo danh mục.
+  - `DiemUT` là điểm ưu tiên khu vực.
+  - Khi import thí sinh, cột `KV` phải tồn tại trong danh mục này.
+- Error codes:
+  - `FILE_INVALID`
+  - `MISSING_REQUIRED_COLUMNS`
+  - `KV_REQUIRED`
+  - `SCORE_OUT_OF_RANGE`
+
+Response `200` (ví dụ):
+```json
+{
+  "success": true,
+  "created": 3,
+  "updated": 1,
+  "skipped": 0,
+  "errors": []
+}
+```
+
+### post: `/api/v1/candidates/`
+- Mô tả: Nhập thí sinh thủ công từ form FE.
+- Body:
+```json
+{
+  "cccd": "012345678901",
+  "graduation_year": 2025,
+  "academic_level": "1",
+  "graduation_score": 8.5,
+  "region_priority": {
+    "region_code": "KV1",
+    "special_code": "DT1"
+  },
+  "scores": [
+    {
+      "score_type": "THPT",
+      "subject_id": "TO",
+      "score": 8.5
+    },
+    {
+      "score_type": "HOCBA",
+      "subject_id": "VA",
+      "score": 9.0
+    }
+  ]
+}
+```
+
+Validation:
+- `cccd`: bắt buộc, đúng 12 chữ số, unique.
+- `academic_level`: optional, chỉ nhận `"0"` hoặc `"1"`.
+- `graduation_score`: optional, decimal trong `0..10`.
+- `region_priority.region_code`: optional, nếu có phải tồn tại trong danh mục khu vực.
+- `scores[].score_type`: một trong `HOCBA | THPT | DGNL | CB`.
+- `scores[].subject_id`: phải tồn tại trong bảng môn học.
+- `scores[].score`: optional, decimal trong `0..10`.
+- Không cho trùng cặp `score_type + subject_id` trong cùng payload.
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "8a7d5c3a-2e11-4f8f-bf11-5a4b7e70d111",
+    "cccd": "012345678901",
+    "ticket_number": "TS.2026.0001",
+    "graduation_year": 2025,
+    "academic_level": "1",
+    "graduation_score": 8.5,
+    "region_priority": {
+      "region_code": "KV1",
+      "bonus_score": 0.25,
+      "special_code": "DT1"
+    },
+    "scores": [
+      {
+        "score_type": "THPT",
+        "subject_id": "TO",
+        "score": 8.5
+      }
+    ]
+  }
+}
+```
+
+### patch: `/api/v1/candidates/{id}/`
+- Mô tả: Cập nhật thí sinh thủ công. Field không gửi thì giữ nguyên. Nếu gửi `scores`, API replace toàn bộ danh sách điểm hiện có.
+- Body:
+```json
+{
+  "graduation_score": 8.75,
+  "region_priority": {
+    "region_code": "KV1",
+    "special_code": "DT2"
+  },
+  "scores": [
+    {
+      "score_type": "HOCBA",
+      "subject_id": "VA",
+      "score": 9.25
+    }
+  ]
+}
+```
+
+Response `200`: cùng shape với `post /api/v1/candidates/`.
+
+Validation error `400`:
+```json
+{
+  "success": false,
+  "error": "VALIDATION_ERROR",
+  "details": {
+    "cccd": ["CCCD phải đúng 12 chữ số."],
+    "region_priority.region_code": ["Khu vực không tồn tại."],
+    "scores.0.subject_id": ["Môn học không tồn tại."],
+    "scores.1": ["Trùng score_type và subject_id."]
+  }
+}
+```
+
 ### post: `/api/v1/candidates/import/`
 - Required columns: `CCCD`
 - Allowed groups:
@@ -42,7 +204,7 @@
   - `MISSING_REQUIRED_COLUMNS`
   - `CCCD_REQUIRED`
   - `CCCD_FORMAT`
-  - `KV_INVALID`
+  - `KV_NOT_FOUND`
   - `HOC_LUC_INVALID`
   - `SCORE_OUT_OF_RANGE`
   - `FILE_MIXED_TYPES`
