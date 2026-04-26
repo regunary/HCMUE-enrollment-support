@@ -1,7 +1,8 @@
 ---
 paths:
   - "hcmue_be/**/*.py"
-  - "apps/**/*.py"
+  - "hcmue_be/apps/**/*.py"
+  - "hcmue_be/src/**/*.py"
 ---
 
 # DRF Backend Rules

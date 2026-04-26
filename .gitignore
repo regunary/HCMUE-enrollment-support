@@ -216,3 +216,5 @@ settings.local.json
 .claude/local/
 
 .history/
+
+data/

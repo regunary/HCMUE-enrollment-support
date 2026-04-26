@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sys; sys.path.insert\\(0, 'src'\\); import auth; print\\(auth.__file__\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python manage.py makemigrations)",
+      "Bash(python manage.py makemigrations user_auth --name add_db_triggers --empty)",
+      "Bash(python manage.py migrate --run-syncdb)",
+      "Bash(python manage.py check)",
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "Bash(.venv/bin/pip show *)",
+      "Bash(PGPASSWORD=postgres psql -U postgres -h localhost -p 5432 -c \"DROP DATABASE IF EXISTS hcmue_enrollment_support;\")",
+      "Bash(PGPASSWORD=postgres psql -U postgres -h localhost -p 5432 -c \"CREATE DATABASE hcmue_enrollment_support;\")",
+      "Bash(/Users/tienphan/Working/HCMUE/HCMUE-enrollment-support/.venv/bin/python manage.py makemigrations)",
+      "Bash(/Users/tienphan/Working/HCMUE/HCMUE-enrollment-support/.venv/bin/python manage.py migrate)"
+    ]
+  }
+}
