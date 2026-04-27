@@ -191,6 +191,34 @@ class CandidateImportApiTests(TestCase):
         self.assertEqual(priority.region_code, 'KV1')
         self.assertEqual(priority.special_code, 'DT1')
 
+    def test_candidate_import_normalizes_excel_text_cccd_with_apostrophe(self):
+        region_file = make_xlsx(['KV', 'DiemUT'], [['KV1', 0.25]])
+        self.client.post('/api/v1/candidates/regions/import/', {'file': region_file}, format='multipart')
+        file = make_xlsx(
+            ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
+            [["'012345678901", 'KV1', '', 2025, 1, 8.5]],
+        )
+
+        response = self.client.post('/api/v1/candidates/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        self.assertTrue(Candidate.objects.filter(cccd='012345678901').exists())
+
+    def test_candidate_import_restores_single_leading_zero_lost_by_numeric_excel_cell(self):
+        region_file = make_xlsx(['KV', 'DiemUT'], [['KV1', 0.25]])
+        self.client.post('/api/v1/candidates/regions/import/', {'file': region_file}, format='multipart')
+        file = make_xlsx(
+            ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
+            [[12345678901, 'KV1', '', 2025, 1, 8.5]],
+        )
+
+        response = self.client.post('/api/v1/candidates/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        self.assertTrue(Candidate.objects.filter(cccd='012345678901').exists())
+
 
 class CandidateScoreImportApiTests(TestCase):
     def setUp(self):
@@ -249,6 +277,16 @@ class CandidateScoreImportApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['created'], 0)
         self.assertEqual(response.data['errors'][0]['code'], 'CANDIDATE_NOT_FOUND')
+
+    def test_import_scores_normalizes_excel_text_cccd_with_apostrophe(self):
+        file = make_xlsx(['CCCD', 'TO'], [["'012345678901", 8.5]])
+
+        response = self.client.post('/api/v1/candidates/scores/thpt/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.THPT)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 8.5)
 
     def test_import_scores_blank_cells_do_not_overwrite_existing_scores(self):
         board = ScoreBoard.objects.create(candidate=self.candidate, score_type=ScoreTypeChoices.THPT)

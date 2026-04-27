@@ -644,7 +644,7 @@ def _validate_candidate_row(row_number, values):
         RowError when validation fails, otherwise None.
     """
 
-    cccd = _clean(values.get('CCCD'))
+    cccd = _clean_cccd(values.get('CCCD'))
     if not cccd:
         return RowError(row_number, 'CCCD_REQUIRED', 'CCCD là bắt buộc', {'field': 'CCCD', 'value': cccd})
     if not re.fullmatch(r'\d{12}', cccd):
@@ -683,7 +683,7 @@ def _validate_score_row(row_number, values, score_columns, column_subject_map, m
         RowError when validation fails, otherwise None.
     """
 
-    cccd = _clean(values.get('CCCD'))
+    cccd = _clean_cccd(values.get('CCCD'))
     if not cccd:
         return RowError(row_number, 'CCCD_REQUIRED', 'CCCD là bắt buộc', {'field': 'CCCD', 'value': cccd})
     if not re.fullmatch(r'\d{12}', cccd):
@@ -718,7 +718,7 @@ def _upsert_candidate_scores(values, score_type, score_columns, column_subject_m
         Dictionary with created, updated, and skipped counters.
     """
 
-    candidate = Candidate.objects.get(cccd=_clean(values.get('CCCD')), is_deleted=False)
+    candidate = Candidate.objects.get(cccd=_clean_cccd(values.get('CCCD')), is_deleted=False)
     counters = {'created': 0, 'updated': 0, 'skipped': 0}
     wrote_any_score = False
     with transaction.atomic():
@@ -765,7 +765,7 @@ def _upsert_candidate(values, batch):
         One of created, updated, or skipped for counter aggregation.
     """
 
-    cccd = _clean(values.get('CCCD'))
+    cccd = _clean_cccd(values.get('CCCD'))
     candidate, created = Candidate.objects.get_or_create(cccd=cccd, defaults={'import_batch': batch})
     candidate_changes = []
     _assign_if_present(candidate, 'graduation_year', _to_int(values.get('NamTN')), candidate_changes)
@@ -1044,6 +1044,25 @@ def _clean(value):
     text = str(value).strip()
     if text.endswith('.0'):
         text = text[:-2]
+    return text
+
+
+def _clean_cccd(value):
+    """
+    Normalize CCCD values coming from Excel before validation and lookup.
+
+    Args:
+        value: Raw CCCD cell value from the worksheet parser.
+
+    Returns:
+        CCCD string with Excel text apostrophe removed and one lost leading zero restored.
+    """
+
+    text = _clean(value)
+    if text.startswith("'"):
+        text = text[1:].strip()
+    if text.isdigit() and len(text) == 11:
+        text = text.zfill(12)
     return text
 
 
