@@ -269,6 +269,17 @@ class CandidateScoreImportApiTests(TestCase):
         board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.CB)
         self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.aptitude).score, 9.5)
 
+    def test_import_hoc_ba_scores_maps_hb_columns_to_base_subjects(self):
+        file = make_xlsx(['CCCD', 'TO_HB', 'VA_HB'], [['012345678901', 9.0, 8.75]])
+
+        response = self.client.post('/api/v1/candidates/scores/hoc-ba/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.HOCBA)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 9.0)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 8.75)
+
     def test_import_scores_rejects_unknown_candidate(self):
         file = make_xlsx(['CCCD', 'TO'], [['999999999999', 8.5]])
 

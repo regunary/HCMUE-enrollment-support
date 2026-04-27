@@ -9,6 +9,7 @@ from src.candidates.serializers import CandidateManualSerializer, ImportFileSeri
 from src.candidates.services import (
     APTITUDE_SCORE_COLUMNS,
     DGNL_SCORE_COLUMNS,
+    HOCBA_SCORE_COLUMNS,
     THPT_SCORE_COLUMNS,
     create_candidate_manually,
     create_region_manually,
@@ -366,4 +367,14 @@ class CandidateNangKhieuScoreImportView(CandidateScoreImportView):
 
     score_type = ScoreTypeChoices.CB
     column_subject_map = APTITUDE_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateHocBaScoreImportView(CandidateScoreImportView):
+    """
+    Import high-school transcript scores from DiemHoBa.xlsx.
+    """
+
+    score_type = ScoreTypeChoices.HOCBA
+    column_subject_map = HOCBA_SCORE_COLUMNS
     max_score = 10

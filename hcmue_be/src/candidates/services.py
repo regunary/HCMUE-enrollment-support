@@ -68,6 +68,22 @@ DGNL_SCORE_COLUMNS = {
     'SI_NL': 'SI',
     'TA_NL': 'TA',
 }
+HOCBA_SCORE_COLUMNS = {
+    'TO_HB': 'TO',
+    'VA_HB': 'VA',
+    'LI_HB': 'LI',
+    'LY_HB': 'LI',
+    'HO_HB': 'HO',
+    'SI_HB': 'SI',
+    'SU_HB': 'SU',
+    'DI_HB': 'DI',
+    'TA_HB': 'TA',
+    'TI_HB': 'TI',
+    'CNNN_HB': 'CNNN',
+    'CNCN_HB': 'CNCN',
+    'GDCD_HB': 'GDCD',
+    'GDKTPL_HB': 'GDKTPL',
+}
 APTITUDE_SCORE_COLUMNS = {
     'NK2': 'NK2',
     'NK3': 'NK3',

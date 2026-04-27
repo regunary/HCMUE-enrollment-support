@@ -249,6 +249,20 @@ Response `200`:
 }
 ```
 
+### post: `/api/v1/candidates/scores/hoc-ba/import/`
+- Mô tả: Import điểm học bạ theo `CCCD`.
+- File mẫu: `data/file_import/DiemHoBa.xlsx`.
+- Required columns: `CCCD`
+- Score columns: `TO_HB, VA_HB, LY_HB, HO_HB, SI_HB, SU_HB, DI_HB, TA_HB, TI_HB, CNNN_HB, CNCN_HB, GDCD_HB, GDKTPL_HB`
+- Rule:
+  - Map `CCCD` tới thí sinh đã tồn tại.
+  - Ghi vào `ScoreBoard.score_type = HOCBA`.
+  - Cột `*_HB` map về môn gốc, ví dụ `TO_HB -> TO`, `VA_HB -> VA`, `LY_HB -> LI`.
+  - Ô trống không ghi đè điểm hiện có.
+  - Điểm hợp lệ trong khoảng `0..10`.
+
+Response `200`: cùng shape với import điểm THPT.
+
 ### post: `/api/v1/candidates/scores/nang-luc/import/`
 - Mô tả: Import điểm thi đánh giá năng lực theo `CCCD`.
 - Required columns: `CCCD`
