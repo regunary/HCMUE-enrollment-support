@@ -8,7 +8,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.choices import RoleChoices
+from core.choices import RoleChoices, ScoreTypeChoices
 from src.programs.models import Subject
 from src.candidates.models import Candidate, Region, RegionPriority, ScoreBoard, SubjectScore
 
@@ -190,6 +190,76 @@ class CandidateImportApiTests(TestCase):
         self.assertEqual(candidate.graduation_score, 8.5)
         self.assertEqual(priority.region_code, 'KV1')
         self.assertEqual(priority.special_code, 'DT1')
+
+
+class CandidateScoreImportApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='score-admin',
+            password='password123',
+            fullname='Score Admin',
+            role=RoleChoices.ADMIN,
+        )
+        self.client.force_authenticate(self.user)
+        self.candidate = Candidate.objects.create(cccd='012345678901')
+        self.math = Subject.objects.create(id='TO', name='Toán')
+        self.literature = Subject.objects.create(id='VA', name='Văn')
+        self.physics = Subject.objects.create(id='LI', name='Lí')
+        self.chemistry = Subject.objects.create(id='HO', name='Hóa')
+        self.aptitude = Subject.objects.create(id='NK2', name='Năng khiếu 2')
+
+    def test_import_thpt_scores_by_cccd(self):
+        file = make_xlsx(['CCCD', 'TO', 'VA'], [['012345678901', 8.5, 7.25]])
+
+        response = self.client.post('/api/v1/candidates/scores/thpt/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.THPT)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 8.5)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 7.25)
+
+    def test_import_nang_luc_scores_maps_columns_to_base_subjects(self):
+        file = make_xlsx(['CCCD', 'TO_NL', 'VA_NL'], [['012345678901', 850, 750]])
+
+        response = self.client.post('/api/v1/candidates/scores/nang-luc/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.DGNL)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 850)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 750)
+
+    def test_import_nang_khieu_scores_uses_cb_score_type(self):
+        file = make_xlsx(['CCCD', 'NK2'], [['012345678901', 9.5]])
+
+        response = self.client.post('/api/v1/candidates/scores/nang-khieu/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.CB)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.aptitude).score, 9.5)
+
+    def test_import_scores_rejects_unknown_candidate(self):
+        file = make_xlsx(['CCCD', 'TO'], [['999999999999', 8.5]])
+
+        response = self.client.post('/api/v1/candidates/scores/thpt/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 0)
+        self.assertEqual(response.data['errors'][0]['code'], 'CANDIDATE_NOT_FOUND')
+
+    def test_import_scores_blank_cells_do_not_overwrite_existing_scores(self):
+        board = ScoreBoard.objects.create(candidate=self.candidate, score_type=ScoreTypeChoices.THPT)
+        SubjectScore.objects.create(score_board=board, subject=self.math, score=8.0)
+        file = make_xlsx(['CCCD', 'TO'], [['012345678901', '']])
+
+        response = self.client.post('/api/v1/candidates/scores/thpt/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['skipped'], 1)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 8.0)
 
 
 class CandidateManualApiTests(TestCase):

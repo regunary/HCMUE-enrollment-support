@@ -7,6 +7,9 @@ from src.candidates import views
 urlpatterns = [
     path('regions/', views.RegionListCreateView.as_view(), name='candidate-regions'),
     path('regions/import/', views.RegionImportView.as_view(), name='candidate-region-import'),
+    path('scores/thpt/import/', views.CandidateThptScoreImportView.as_view(), name='candidate-thpt-score-import'),
+    path('scores/nang-luc/import/', views.CandidateNangLucScoreImportView.as_view(), name='candidate-nang-luc-score-import'),
+    path('scores/nang-khieu/import/', views.CandidateNangKhieuScoreImportView.as_view(), name='candidate-nang-khieu-score-import'),
     path('', views.CandidateListCreateView.as_view(), name='candidates'),
     path('import/', views.CandidateImportView.as_view(), name='candidate-import'),
     path('<uuid:pk>/', views.CandidateDetailView.as_view(), name='candidate-detail'),

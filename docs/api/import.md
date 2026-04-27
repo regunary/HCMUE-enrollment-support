@@ -227,6 +227,63 @@ Response `200` (ví dụ):
 }
 ```
 
+### post: `/api/v1/candidates/scores/thpt/import/`
+- Mô tả: Import điểm thi THPT theo `CCCD`.
+- Required columns: `CCCD`
+- Score columns: `TO, VA, LI, HO, SI, SU, DI, GDCD, GDKTPL, TI, CNNN, CNCN, N1, N2, N3, N4, N5, N6, N7`
+- Rule:
+  - Map `CCCD` tới thí sinh đã tồn tại.
+  - Ghi vào `ScoreBoard.score_type = THPT`.
+  - Mỗi cột điểm map trực tiếp tới `Subject.id` cùng mã.
+  - Ô trống không ghi đè điểm hiện có.
+  - Điểm hợp lệ trong khoảng `0..10`.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "created": 2,
+  "updated": 1,
+  "skipped": 0,
+  "errors": []
+}
+```
+
+### post: `/api/v1/candidates/scores/nang-luc/import/`
+- Mô tả: Import điểm thi đánh giá năng lực theo `CCCD`.
+- Required columns: `CCCD`
+- Score columns: `TO_NL, VA_NL, LI_NL, HO_NL, SI_NL, TA_NL`
+- Rule:
+  - Map `CCCD` tới thí sinh đã tồn tại.
+  - Ghi vào `ScoreBoard.score_type = DGNL`.
+  - Cột `*_NL` map về môn gốc, ví dụ `TO_NL -> TO`, `VA_NL -> VA`.
+  - Ô trống không ghi đè điểm hiện có.
+  - Điểm hợp lệ trong khoảng `0..1200`.
+
+Response `200`: cùng shape với import điểm THPT.
+
+### post: `/api/v1/candidates/scores/nang-khieu/import/`
+- Mô tả: Import điểm thi năng khiếu theo `CCCD`.
+- Required columns: `CCCD`
+- Score columns: `NK2, NK3, NK4, NK5`
+- Rule:
+  - Map `CCCD` tới thí sinh đã tồn tại.
+  - Ghi vào `ScoreBoard.score_type = CB`.
+  - Mỗi cột điểm map trực tiếp tới `Subject.id` cùng mã.
+  - Ô trống không ghi đè điểm hiện có.
+  - Điểm hợp lệ trong khoảng `0..10`.
+
+Response `200`: cùng shape với import điểm THPT.
+
+Score import error codes:
+- `FILE_INVALID`
+- `MISSING_REQUIRED_COLUMNS`
+- `CCCD_REQUIRED`
+- `CCCD_FORMAT`
+- `CANDIDATE_NOT_FOUND`
+- `SUBJECT_NOT_FOUND`
+- `SCORE_OUT_OF_RANGE`
+
 ### get: `/api/v1/candidates/`
 - Mô tả: Lấy danh sách thí sinh đã import (có phân trang).
 - Dữ liệu trả về: đầy đủ tất cả trường hiện có của thí sinh.

@@ -37,6 +37,43 @@ SCORE_HEADERS = {
     'TO_HB', 'VA_HB', 'LI_HB', 'LY_HB', 'HO_HB', 'SI_HB', 'SU_HB', 'DI_HB', 'TA_HB',
     'TI_HB', 'CNNN_HB', 'CNCN_HB', 'GDCD_HB', 'GDKTPL_HB',
 }
+THPT_SCORE_COLUMNS = {
+    'TO': 'TO',
+    'VA': 'VA',
+    'LI': 'LI',
+    'LY': 'LI',
+    'HO': 'HO',
+    'SI': 'SI',
+    'SU': 'SU',
+    'DI': 'DI',
+    'GDCD': 'GDCD',
+    'GDKTPL': 'GDKTPL',
+    'TI': 'TI',
+    'CNNN': 'CNNN',
+    'CNCN': 'CNCN',
+    'N1': 'N1',
+    'N2': 'N2',
+    'N3': 'N3',
+    'N4': 'N4',
+    'N5': 'N5',
+    'N6': 'N6',
+    'N7': 'N7',
+}
+DGNL_SCORE_COLUMNS = {
+    'TO_NL': 'TO',
+    'VA_NL': 'VA',
+    'LI_NL': 'LI',
+    'LY_NL': 'LI',
+    'HO_NL': 'HO',
+    'SI_NL': 'SI',
+    'TA_NL': 'TA',
+}
+APTITUDE_SCORE_COLUMNS = {
+    'NK2': 'NK2',
+    'NK3': 'NK3',
+    'NK4': 'NK4',
+    'NK5': 'NK5',
+}
 
 @dataclass
 class RowError:
@@ -189,6 +226,50 @@ def import_candidate_basic_info(file_obj, user=None):
             summary.updated += 1
         else:
             summary.skipped += 1
+
+    _complete_batch(batch, summary)
+    return summary.as_response()
+
+
+def import_candidate_scores(file_obj, score_type, column_subject_map, max_score, user=None):
+    """
+    Import candidate subject scores from an Excel score template.
+
+    Args:
+        file_obj: Uploaded .xlsx file object from the multipart request.
+        score_type: ScoreBoard.score_type value to write.
+        column_subject_map: Mapping from Excel score columns to Subject.id values.
+        max_score: Maximum allowed score for this score type.
+        user: Authenticated user that initiated the import, stored on ImportBatch.
+
+    Returns:
+        Dictionary containing success status, counters, and row-level errors.
+
+    Raises:
+        ValueError: Raised with FILE_INVALID when the uploaded file is not a readable .xlsx file.
+    """
+
+    rows = _read_xlsx(file_obj)
+    summary = ImportSummary()
+    batch = _create_batch(file_obj, user)
+
+    headers, data_rows = _split_rows(rows)
+    if 'CCCD' not in headers:
+        return _fail_batch(batch, summary, 'MISSING_REQUIRED_COLUMNS', 'Thiếu cột: CCCD')
+    score_columns = [header for header in headers if header in column_subject_map]
+    if not score_columns:
+        return _fail_batch(batch, summary, 'MISSING_REQUIRED_COLUMNS', 'File không có cột điểm phù hợp')
+
+    for row_number, row in data_rows:
+        values = _row_values(headers, row)
+        error = _validate_score_row(row_number, values, score_columns, column_subject_map, max_score)
+        if error:
+            summary.errors.append(error)
+            continue
+        row_result = _upsert_candidate_scores(values, score_type, score_columns, column_subject_map)
+        summary.created += row_result['created']
+        summary.updated += row_result['updated']
+        summary.skipped += row_result['skipped']
 
     _complete_batch(batch, summary)
     return summary.as_response()
@@ -585,6 +666,91 @@ def _validate_candidate_row(row_number, values):
     if _clean(values.get('DiemTN')) and (graduation_score is None or graduation_score < 0 or graduation_score > 10):
         return RowError(row_number, 'SCORE_OUT_OF_RANGE', 'DiemTN phải trong khoảng 0..10', {'field': 'DiemTN', 'value': values.get('DiemTN')})
     return None
+
+
+def _validate_score_row(row_number, values, score_columns, column_subject_map, max_score):
+    """
+    Validate one score import row before database writes.
+
+    Args:
+        row_number: 1-based Excel row number for the current data row.
+        values: Row values keyed by Excel header.
+        score_columns: Score columns detected in the uploaded template.
+        column_subject_map: Mapping from Excel score columns to Subject.id values.
+        max_score: Maximum allowed score for this score type.
+
+    Returns:
+        RowError when validation fails, otherwise None.
+    """
+
+    cccd = _clean(values.get('CCCD'))
+    if not cccd:
+        return RowError(row_number, 'CCCD_REQUIRED', 'CCCD là bắt buộc', {'field': 'CCCD', 'value': cccd})
+    if not re.fullmatch(r'\d{12}', cccd):
+        return RowError(row_number, 'CCCD_FORMAT', 'CCCD không đúng 12 chữ số', {'field': 'CCCD', 'value': cccd})
+    if not Candidate.objects.filter(cccd=cccd, is_deleted=False).exists():
+        return RowError(row_number, 'CANDIDATE_NOT_FOUND', 'Không tìm thấy thí sinh theo CCCD', {'field': 'CCCD', 'value': cccd})
+
+    for column in score_columns:
+        subject_id = column_subject_map[column]
+        if not Subject.objects.filter(id=subject_id).exists():
+            return RowError(row_number, 'SUBJECT_NOT_FOUND', 'Môn học không tồn tại', {'field': column, 'value': subject_id})
+        raw_score = _clean(values.get(column))
+        if not raw_score:
+            continue
+        score = _to_decimal(raw_score)
+        if score is None or score < 0 or score > max_score:
+            return RowError(row_number, 'SCORE_OUT_OF_RANGE', 'Điểm không hợp lệ', {'field': column, 'value': values.get(column)})
+    return None
+
+
+def _upsert_candidate_scores(values, score_type, score_columns, column_subject_map):
+    """
+    Create or update score rows for one candidate import row.
+
+    Args:
+        values: Validated row values keyed by Excel header.
+        score_type: ScoreBoard.score_type value to write.
+        score_columns: Score columns detected in the uploaded template.
+        column_subject_map: Mapping from Excel score columns to Subject.id values.
+
+    Returns:
+        Dictionary with created, updated, and skipped counters.
+    """
+
+    candidate = Candidate.objects.get(cccd=_clean(values.get('CCCD')), is_deleted=False)
+    counters = {'created': 0, 'updated': 0, 'skipped': 0}
+    wrote_any_score = False
+    with transaction.atomic():
+        board = None
+        for column in score_columns:
+            score = _to_decimal(values.get(column))
+            if score is None:
+                continue
+            if board is None:
+                board, board_created = ScoreBoard.objects.get_or_create(candidate=candidate, score_type=score_type)
+                if board_created:
+                    _log_score_board(board, ActionsChoices.CREATE)
+            subject = Subject.objects.get(id=column_subject_map[column])
+            subject_score, created = SubjectScore.objects.get_or_create(
+                score_board=board,
+                subject=subject,
+                defaults={'score': score},
+            )
+            wrote_any_score = True
+            if created:
+                counters['created'] += 1
+                _log_subject_score(subject_score, ActionsChoices.CREATE)
+            elif subject_score.score != score:
+                subject_score.score = score
+                subject_score.action = ActionsChoices.UPDATE
+                subject_score.field_changed = 'score'
+                subject_score.save(update_fields=['score', 'action', 'field_changed', 'update_date'])
+                counters['updated'] += 1
+                _log_subject_score(subject_score, ActionsChoices.UPDATE, subject_score.field_changed)
+        if not wrote_any_score:
+            counters['skipped'] += 1
+    return counters
 
 
 def _upsert_candidate(values, batch):

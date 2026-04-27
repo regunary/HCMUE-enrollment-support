@@ -7,14 +7,19 @@ from auth.permissions import IsAdmin
 from src.candidates.models import Candidate, Region
 from src.candidates.serializers import CandidateManualSerializer, ImportFileSerializer, RegionSerializer
 from src.candidates.services import (
+    APTITUDE_SCORE_COLUMNS,
+    DGNL_SCORE_COLUMNS,
+    THPT_SCORE_COLUMNS,
     create_candidate_manually,
     create_region_manually,
     import_candidate_basic_info,
+    import_candidate_scores,
     import_regions,
     serialize_candidate,
     serialize_region,
     update_candidate_manually,
 )
+from core.choices import ScoreTypeChoices
 
 
 def validation_error_response(errors):
@@ -286,3 +291,79 @@ class CandidateImportView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(data)
+
+
+class CandidateScoreImportView(GenericAPIView):
+    """
+    Handle candidate score import requests for one score type.
+
+    Request:
+        multipart/form-data with required file field containing CCCD and score columns.
+
+    Response:
+        Import summary with created, updated, skipped, and row-level errors.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+    score_type = None
+    column_subject_map = None
+    max_score = 10
+
+    def post(self, request):
+        """
+        Validate the uploaded file and delegate score writes to the import service.
+
+        Args:
+            request: DRF request containing multipart upload data.
+
+        Returns:
+            DRF Response with import summary or FILE_INVALID error.
+        """
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = import_candidate_scores(
+                serializer.validated_data['file'],
+                self.score_type,
+                self.column_subject_map,
+                self.max_score,
+                request.user,
+            )
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(data)
+
+
+class CandidateThptScoreImportView(CandidateScoreImportView):
+    """
+    Import THPT exam scores from DiemThiTHPT.xlsx.
+    """
+
+    score_type = ScoreTypeChoices.THPT
+    column_subject_map = THPT_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateNangLucScoreImportView(CandidateScoreImportView):
+    """
+    Import ĐGNL scores from DiemThiNangLuc.xlsx.
+    """
+
+    score_type = ScoreTypeChoices.DGNL
+    column_subject_map = DGNL_SCORE_COLUMNS
+    max_score = 1200
+
+
+class CandidateNangKhieuScoreImportView(CandidateScoreImportView):
+    """
+    Import aptitude/specialized scores from DiemThiNangKhieu.xlsx.
+    """
+
+    score_type = ScoreTypeChoices.CB
+    column_subject_map = APTITUDE_SCORE_COLUMNS
+    max_score = 10
