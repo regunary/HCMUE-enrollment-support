@@ -352,12 +352,12 @@ class CandidateThptScoreImportView(CandidateScoreImportView):
 
 class CandidateNangLucScoreImportView(CandidateScoreImportView):
     """
-    Import ĐGNL scores from DiemThiNangLuc.xlsx.
+    Import specialized competency scores from DiemThiNangLuc.xlsx.
     """
 
     score_type = ScoreTypeChoices.DGNL
     column_subject_map = DGNL_SCORE_COLUMNS
-    max_score = 1200
+    max_score = 10
 
 
 class CandidateNangKhieuScoreImportView(CandidateScoreImportView):

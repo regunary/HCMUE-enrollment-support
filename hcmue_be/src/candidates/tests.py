@@ -249,15 +249,24 @@ class CandidateScoreImportApiTests(TestCase):
         self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 7.25)
 
     def test_import_nang_luc_scores_maps_columns_to_base_subjects(self):
-        file = make_xlsx(['CCCD', 'TO_NL', 'VA_NL'], [['012345678901', 850, 750]])
+        file = make_xlsx(['CCCD', 'TO_NL', 'VA_NL'], [['012345678901', 9.5, 8.75]])
 
         response = self.client.post('/api/v1/candidates/scores/nang-luc/import/', {'file': file}, format='multipart')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['created'], 2)
         board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.DGNL)
-        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 850)
-        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 750)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 9.5)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.literature).score, 8.75)
+
+    def test_import_nang_luc_scores_rejects_score_above_ten(self):
+        file = make_xlsx(['CCCD', 'TO_NL'], [['012345678901', 11]])
+
+        response = self.client.post('/api/v1/candidates/scores/nang-luc/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 0)
+        self.assertEqual(response.data['errors'][0]['code'], 'SCORE_OUT_OF_RANGE')
 
     def test_import_nang_khieu_scores_uses_cb_score_type(self):
         file = make_xlsx(['CCCD', 'NK2'], [['012345678901', 9.5]])
@@ -363,6 +372,49 @@ class CandidateManualApiTests(TestCase):
         self.assertEqual(RegionPriority.objects.get(candidate=candidate).special_code, 'DT1')
         self.assertEqual(ScoreBoard.objects.filter(candidate=candidate).count(), 2)
         self.assertEqual(SubjectScore.objects.filter(score_board__candidate=candidate).count(), 2)
+
+    def test_create_candidate_manually_accepts_dgnl_score_scale(self):
+        payload = {
+            'cccd': '012345678901',
+            'scores': [
+                {'score_type': 'DGNL', 'subject_id': 'TO', 'score': 9.5},
+            ],
+        }
+
+        response = self.client.post('/api/v1/candidates/', payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        candidate = Candidate.objects.get(cccd='012345678901')
+        board = ScoreBoard.objects.get(candidate=candidate, score_type=ScoreTypeChoices.DGNL)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.math).score, 9.5)
+
+    def test_create_candidate_manually_rejects_dgnl_score_above_ten(self):
+        payload = {
+            'cccd': '012345678901',
+            'scores': [
+                {'score_type': 'DGNL', 'subject_id': 'TO', 'score': 11},
+            ],
+        }
+
+        response = self.client.post('/api/v1/candidates/', payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data['success'])
+        self.assertIn('scores.0.score', response.data['details'])
+
+    def test_create_candidate_manually_rejects_thpt_score_above_ten(self):
+        payload = {
+            'cccd': '012345678901',
+            'scores': [
+                {'score_type': 'THPT', 'subject_id': 'TO', 'score': 11},
+            ],
+        }
+
+        response = self.client.post('/api/v1/candidates/', payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data['success'])
+        self.assertIn('scores.0.score', response.data['details'])
 
     def test_create_candidate_rejects_duplicate_score_rows(self):
         payload = {

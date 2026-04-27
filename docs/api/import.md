@@ -272,7 +272,7 @@ Response `200`: cùng shape với import điểm THPT.
   - Ghi vào `ScoreBoard.score_type = DGNL`.
   - Cột `*_NL` map về môn gốc, ví dụ `TO_NL -> TO`, `VA_NL -> VA`.
   - Ô trống không ghi đè điểm hiện có.
-  - Điểm hợp lệ trong khoảng `0..1200`.
+  - Điểm hợp lệ trong khoảng `0..10`.
 
 Response `200`: cùng shape với import điểm THPT.
 

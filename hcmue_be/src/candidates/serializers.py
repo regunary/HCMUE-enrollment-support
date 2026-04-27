@@ -84,7 +84,7 @@ class ScoreInputSerializer(serializers.Serializer):
 
     score_type = serializers.ChoiceField(choices=ScoreTypeChoices.choices)
     subject_id = serializers.CharField(max_length=10)
-    score = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0, max_value=10, required=False, allow_null=True)
+    score = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=0, required=False, allow_null=True)
 
     def validate_subject_id(self, value):
         """
@@ -101,6 +101,24 @@ class ScoreInputSerializer(serializers.Serializer):
         if not Subject.objects.filter(id=subject_id).exists():
             raise serializers.ValidationError('Môn học không tồn tại.')
         return subject_id
+
+    def validate(self, attrs):
+        """
+        Validate score range with the scale used by the selected score type.
+
+        Args:
+            attrs: Field-level validated score row data.
+
+        Returns:
+            Validated score row when its value fits the selected score type.
+        """
+
+        score = attrs.get('score')
+        score_type = attrs.get('score_type')
+        max_score = 10
+        if score is not None and score > max_score:
+            raise serializers.ValidationError({'score': [f'Điểm {score_type} phải trong khoảng 0..{max_score}.']})
+        return attrs
 
 
 class CandidateManualSerializer(serializers.Serializer):
