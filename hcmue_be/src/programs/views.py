@@ -3,13 +3,17 @@ from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.response import Response
 
 from auth.permissions import IsAdmin
-from src.programs.models import SubjectCombination
-from src.programs.serializers import CombinationManualSerializer, ImportFileSerializer
+from src.programs.models import Subject, SubjectCombination
+from src.programs.serializers import CombinationManualSerializer, ImportFileSerializer, SubjectSerializer
 from src.programs.services import (
     create_combination_manually,
+    create_subject_manually,
     import_combinations,
+    import_subjects,
     serialize_combination,
+    serialize_subject,
     update_combination_manually,
+    update_subject_manually,
 )
 
 
@@ -104,6 +108,111 @@ class CombinationListCreateView(GenericAPIView):
         return Response(create_combination_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
 
 
+class SubjectListCreateView(GenericAPIView):
+    """
+    List and create subject master data manually.
+
+    Request:
+        GET has no body. POST expects id and name.
+
+    Response:
+        Subject payloads used by score and combination dropdowns.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = SubjectSerializer
+
+    def get(self, request):
+        """
+        Return subjects for frontend dropdowns.
+
+        Args:
+            request: DRF request.
+
+        Returns:
+            DRF Response containing serialized subjects.
+        """
+
+        subjects = Subject.objects.all().order_by('id')
+        return Response({'success': True, 'results': [serialize_subject(subject) for subject in subjects]})
+
+    def post(self, request):
+        """
+        Validate and create one subject from JSON.
+
+        Args:
+            request: DRF request containing subject JSON payload.
+
+        Returns:
+            DRF Response with created subject or validation errors.
+        """
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(create_subject_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
+
+
+class SubjectDetailView(GenericAPIView):
+    """
+    Retrieve or update one subject manually.
+
+    Request:
+        GET has no body. PATCH accepts partial subject JSON.
+
+    Response:
+        Subject payload used by score and combination dropdowns.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = SubjectSerializer
+
+    def get_object(self, pk):
+        """
+        Resolve a subject by code.
+
+        Args:
+            pk: Subject.id from the URL.
+
+        Returns:
+            Subject instance.
+        """
+
+        return get_object_or_404(Subject.objects.all(), pk=pk)
+
+    def get(self, request, pk):
+        """
+        Return one subject by code.
+
+        Args:
+            request: DRF request.
+            pk: Subject.id from the URL.
+
+        Returns:
+            DRF Response with serialized subject.
+        """
+
+        return Response({'success': True, 'data': serialize_subject(self.get_object(pk))})
+
+    def patch(self, request, pk):
+        """
+        Validate and update one subject.
+
+        Args:
+            request: DRF request containing partial subject JSON.
+            pk: Subject.id from the URL.
+
+        Returns:
+            DRF Response with updated subject or validation errors.
+        """
+
+        subject = self.get_object(pk)
+        serializer = self.get_serializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(update_subject_manually(subject, serializer.validated_data))
+
+
 class CombinationDetailView(GenericAPIView):
     """
     Retrieve or update one subject combination manually.
@@ -193,6 +302,43 @@ class CombinationImportView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             data = import_combinations(serializer.validated_data['file'])
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(data)
+
+
+class SubjectImportView(GenericAPIView):
+    """
+    Handle subject Excel import requests.
+
+    Request:
+        multipart/form-data with required file field containing MaMon/TenMon columns.
+
+    Response:
+        Import summary with created, updated, skipped, and row-level errors.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    def post(self, request):
+        """
+        Validate the uploaded file and delegate import work to the subject service.
+
+        Args:
+            request: DRF request containing multipart upload data.
+
+        Returns:
+            DRF Response with import summary or FILE_INVALID error.
+        """
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = import_subjects(serializer.validated_data['file'])
         except ValueError:
             return Response(
                 {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},

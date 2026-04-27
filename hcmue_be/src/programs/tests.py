@@ -82,6 +82,51 @@ def make_xlsx(headers, rows):
     )
 
 
+class SubjectApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='subject-admin',
+            password='password123',
+            fullname='Subject Admin',
+            role=RoleChoices.ADMIN,
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_create_subject_manually(self):
+        response = self.client.post(
+            '/api/v1/subjects/',
+            {'id': 'TO', 'name': 'Toán'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['data']['id'], 'TO')
+        self.assertEqual(response.data['data']['name'], 'Toán')
+        self.assertTrue(Subject.objects.filter(id='TO', name='Toán').exists())
+
+    def test_import_subjects_creates_subject_master_data(self):
+        file = make_xlsx(['MaMon', 'TenMon'], [['TO', 'Toán'], ['LI', 'Lí']])
+
+        response = self.client.post('/api/v1/subjects/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        self.assertEqual(response.data['errors'], [])
+        self.assertTrue(Subject.objects.filter(id='TO', name='Toán').exists())
+        self.assertTrue(Subject.objects.filter(id='LI', name='Lí').exists())
+
+    def test_patch_subject_updates_name(self):
+        Subject.objects.create(id='TO', name='Old')
+
+        response = self.client.patch('/api/v1/subjects/TO/', {'name': 'Toán'}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['name'], 'Toán')
+        self.assertEqual(Subject.objects.get(id='TO').name, 'Toán')
+
+
 class CombinationApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()

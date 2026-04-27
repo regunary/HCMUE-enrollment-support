@@ -4,6 +4,33 @@ from core.choices import ScoreTypeChoices
 from src.programs.models import Subject, SubjectCombination
 
 
+class SubjectSerializer(serializers.ModelSerializer):
+    """
+    Validate and serialize subject master data.
+
+    Fields:
+        id: Subject code used by score and combination imports.
+        name: Human-readable subject name.
+    """
+
+    class Meta:
+        model = Subject
+        fields = ['id', 'name']
+
+    def validate_id(self, value):
+        """
+        Normalize the subject code before uniqueness validation.
+
+        Args:
+            value: Raw subject code from the request body.
+
+        Returns:
+            Uppercase trimmed subject code.
+        """
+
+        return value.strip().upper()
+
+
 class ImportFileSerializer(serializers.Serializer):
     """
     Validate multipart import uploads.

@@ -359,6 +359,88 @@ Response `200` (ví dụ):
 
 ---
 
+## subject
+
+### get: `/api/v1/subjects/`
+- Mô tả: Lấy danh mục môn học để FE hiển thị dropdown và để các API import điểm/tổ hợp validate.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "id": "TO",
+      "name": "Toán"
+    }
+  ]
+}
+```
+
+### post: `/api/v1/subjects/`
+- Mô tả: Thêm môn học thủ công.
+- Body:
+```json
+{
+  "id": "TO",
+  "name": "Toán"
+}
+```
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "TO",
+    "name": "Toán"
+  }
+}
+```
+
+### patch: `/api/v1/subjects/{id}/`
+- Mô tả: Cập nhật tên môn học.
+- Body:
+```json
+{
+  "name": "Toán"
+}
+```
+
+Response `200`: cùng shape với `post /api/v1/subjects/`.
+
+### post: `/api/v1/subjects/import/`
+- Mô tả: Import danh mục môn học trước khi import tổ hợp hoặc điểm.
+- Required columns: `MaMon, TenMon`
+- Rule:
+  - `MaMon` là mã môn dùng trong các file import như `TO`, `LI`, `HO`, `NK2`.
+  - Import merge theo `MaMon`; nếu môn đã tồn tại và tên khác thì update.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "created": 2,
+  "updated": 0,
+  "skipped": 0,
+  "errors": []
+}
+```
+
+Subject import error codes:
+- `FILE_INVALID`
+- `MISSING_REQUIRED_COLUMNS`
+- `SUBJECT_CODE_REQUIRED`
+- `SUBJECT_NAME_REQUIRED`
+
+Suggested initial subject codes:
+- `TO, VA, LI, HO, SI, SU, DI, GDCD, GDKTPL, TI, CNNN, CNCN`
+- `N1, N2, N3, N4, N5, N6, N7`
+- `TA`
+- `NK2, NK3, NK4, NK5`
+
+---
+
 ## combination
 
 ### post: `/api/v1/combinations/`
