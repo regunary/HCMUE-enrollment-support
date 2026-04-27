@@ -1,0 +1,78 @@
+services:
+  # Database container is built from init/postgres so DB infra stays outside BE.
+  postgres:
+    build:
+      context: ./init/postgres
+    container_name: hcmue-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hcmue_enrollment_support}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend image owns Django runtime only; nginx serves collected static files from a shared volume.
+  backend:
+    build:
+      context: ./hcmue_be
+    container_name: hcmue-backend
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-before-deploy}
+      DEBUG: ${DEBUG:-False}
+      DB_NAME: ${POSTGRES_DB:-hcmue_enrollment_support}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_HOST: postgres
+      DB_PORT: 5432
+    expose:
+      - "8000"
+    volumes:
+      - backend_static:/app/core/static
+      - backend_media:/app/core/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Frontend builds Vite output once and copies dist into a volume consumed by nginx.
+  frontend:
+    build:
+      context: ./hcmue_fe
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_USE_MOCK: ${VITE_USE_MOCK:-false}
+    container_name: hcmue-frontend-build
+    volumes:
+      - frontend_dist:/dist
+
+  # Nginx is independent infra under init/nginx and proxies API traffic to backend.
+  nginx:
+    build:
+      context: ./init/nginx
+    container_name: hcmue-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - frontend_dist:/usr/share/nginx/html:ro
+      - backend_static:/var/www/backend_static:ro
+      - backend_media:/var/www/backend_media:ro
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  frontend_dist:
+  backend_static:
+  backend_media:
