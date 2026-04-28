@@ -92,7 +92,7 @@ export function Drawer(
       />
       <aside
         ref={panelRef}
-        className="relative w-[min(460px,100vw)] h-full bg-surface border-l border-border flex flex-col shadow-md"
+        className="relative w-[min(660px,100vw)] h-full bg-surface border-l border-border flex flex-col shadow-md"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

@@ -1,85 +1,47 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ZodType } from 'zod'
-import {
-  Badge,
-  Button,
-  Card,
-  DataTable,
-  Drawer,
-  FormField,
-  Input,
-  NumberInput,
-  Textarea,
-  Uploader,
-} from '../../components'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Badge, Button, Card, DataTable, Uploader } from '../../components'
 import { useAsync } from '../../hooks/useAsync'
 import { writeSheet } from '../../utils/excel'
-import type { ImportFieldDef, RowModel } from './importEntity.types'
-
-type DraftValues = Record<string, string>
+import { useToast } from '../feedback/useToast'
+import { ImportEntityDrawer } from './ImportEntityDrawer'
+import {
+  draftFromRow,
+  draftToPayload,
+  emptyDraft,
+  parseCombinationDraft,
+  parseScoreJsonRows,
+  type CombinationDraftMap,
+  type ScoreDraftRow,
+} from './importEntity.helpers'
+import type { DraftValues, ImportEntityPageProps, RowModel } from './importEntity.types'
+import { formatImportResultForToast } from './importResultFormat'
 
 /** create-form: new row; edit-view: read-only; edit-form: editing existing row */
 type DrawerMode = 'create-form' | 'edit-view' | 'edit-form'
 
-type ImportEntityPageProps = {
-  title: string
-  description: string
-  getRows: () => Promise<RowModel[]>
-  sampleRows: RowModel[]
-  fields: ImportFieldDef[]
-  rowSchema: ZodType<RowModel>
-}
-
-function draftFromRow(row: RowModel, fields: ImportFieldDef[]): DraftValues {
-  const o: DraftValues = {}
-  for (const f of fields) {
-    const v = row[f.key]
-    o[f.key] = v === undefined || v === null ? '' : String(v)
-  }
-  return o
-}
-
-function emptyDraft(fields: ImportFieldDef[]): DraftValues {
-  return fields.reduce<DraftValues>((acc, f) => {
-    acc[f.key] = ''
-    return acc
-  }, {})
-}
-
-function draftToPayload(draft: DraftValues, fields: ImportFieldDef[]): Record<string, unknown> {
-  const o: Record<string, unknown> = {}
-  for (const f of fields) {
-    const s = draft[f.key] ?? ''
-    if (f.kind === 'number') {
-      if (s.trim() === '') {
-        o[f.key] = undefined
-      } else {
-        const n = Number(s)
-        o[f.key] = Number.isFinite(n) ? n : Number.NaN
-      }
-    } else {
-      o[f.key] = s
-    }
-  }
-  return o
-}
-
-function formatDetailValue(value: string | number | undefined): string {
-  if (value === undefined || value === null || value === '') {
-    return '—'
-  }
-  return String(value)
-}
-
 export function ImportEntityPage(props: ImportEntityPageProps) {
-  const [fileName, setFileName] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [open, setOpen] = useState(false)
   const [drawerMode, setDrawerMode] = useState<DrawerMode>('create-form')
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null)
   const [rows, setRows] = useState<RowModel[]>([])
   const [draft, setDraft] = useState<DraftValues | null>(null)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [scoreRows, setScoreRows] = useState<ScoreDraftRow[]>([])
+  const [combinationMap, setCombinationMap] = useState<CombinationDraftMap>({})
   const { loading, error, execute } = useAsync(props.getRows)
+  const { showToast } = useToast()
+  const [importing, setImporting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const listRefreshTokenRef = useRef<number | undefined>(undefined)
+  const showForm = draft !== null && (drawerMode === 'create-form' || drawerMode === 'edit-form')
+
+  const reloadRows = async () => {
+    const result = await execute()
+    if (result) {
+      setRows(result)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -93,21 +55,62 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     }
   }, [execute])
 
+  useEffect(() => {
+    if (error) {
+      showToast(error, 'error')
+    }
+  }, [error, showToast])
+
+  useEffect(() => {
+    const token = props.listRefreshToken
+    if (token === undefined) {
+      return
+    }
+    if (listRefreshTokenRef.current === undefined) {
+      listRefreshTokenRef.current = token
+      return
+    }
+    if (token === listRefreshTokenRef.current) {
+      return
+    }
+    listRefreshTokenRef.current = token
+    void execute().then((result) => {
+      if (result) {
+        setRows(result)
+      }
+    })
+  }, [props.listRefreshToken, execute])
+
   const columns = useMemo(
     () =>
-      props.fields.map((f) => ({
-        key: f.key as keyof RowModel,
-        label: f.label,
-      })),
-    [props.fields],
+      props.fields
+        .filter((f) => !(props.hiddenTableFieldKeys ?? []).includes(f.key))
+        .map((f) => ({
+          key: f.key as keyof RowModel,
+          label: f.label,
+        })),
+    [props.fields, props.hiddenTableFieldKeys],
   )
 
   const viewRow = selectedRowIndex !== null ? rows[selectedRowIndex] : undefined
 
+  const updateDraftField = (fieldKey: string, value: string) => {
+    setDraft((current) => {
+      if (!current) {
+        return current
+      }
+      const nextDraft = { ...current, [fieldKey]: value }
+      return props.onDraftChange ? props.onDraftChange(nextDraft, fieldKey) : nextDraft
+    })
+  }
+
   const openCreateDrawer = () => {
+    const nextDraft = emptyDraft(props.fields)
     setSelectedRowIndex(null)
     setDrawerMode('create-form')
-    setDraft(emptyDraft(props.fields))
+    setDraft(nextDraft)
+    setScoreRows(parseScoreJsonRows(nextDraft.scoreJson ?? ''))
+    setCombinationMap(parseCombinationDraft(nextDraft.subjects ?? '', nextDraft.weights ?? ''))
     setFormErrors({})
     setOpen(true)
   }
@@ -124,13 +127,18 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     setOpen(false)
     setFormErrors({})
     setDraft(null)
+    setScoreRows([])
+    setCombinationMap({})
   }
 
   const startEditFromView = () => {
     if (selectedRowIndex === null || viewRow === undefined) {
       return
     }
-    setDraft(draftFromRow(viewRow, props.fields))
+    const nextDraft = draftFromRow(viewRow, props.fields)
+    setDraft(nextDraft)
+    setScoreRows(parseScoreJsonRows(nextDraft.scoreJson ?? ''))
+    setCombinationMap(parseCombinationDraft(nextDraft.subjects ?? '', nextDraft.weights ?? ''))
     setDrawerMode('edit-form')
     setFormErrors({})
   }
@@ -141,7 +149,7 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     setDrawerMode('edit-view')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!draft) {
       return
     }
@@ -158,13 +166,48 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
       setFormErrors(next)
       return
     }
-    const data = parsed.data
+    const data = parsed.data as RowModel
+    if (props.saveRow) {
+      setSaving(true)
+      try {
+        await props.saveRow(data, selectedRowIndex, rows)
+        await reloadRows()
+        showToast('Lưu dữ liệu thành công.', 'success')
+        closeDrawer()
+      } catch (saveError) {
+        const message = saveError instanceof Error ? saveError.message : 'Lưu dữ liệu thất bại.'
+        showToast(message, 'error')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
     if (selectedRowIndex === null) {
       setRows((current) => [data, ...current])
     } else {
       setRows((current) => current.map((row, index) => (index === selectedRowIndex ? data : row)))
     }
+    await reloadRows()
+    showToast('Lưu dữ liệu thành công.', 'success')
     closeDrawer()
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile || !props.importFile) {
+      return
+    }
+    setImporting(true)
+    try {
+      const summary = await props.importFile(selectedFile)
+      const { message, kind } = formatImportResultForToast(props.title, summary)
+      showToast(message, kind)
+      await reloadRows()
+    } catch (apiError) {
+      const message = apiError instanceof Error ? apiError.message : 'Import thất bại.'
+      showToast(message, 'error')
+    } finally {
+      setImporting(false)
+    }
   }
 
   const drawerTitle =
@@ -174,17 +217,27 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         ? 'Chi tiết bản ghi'
         : 'Chỉnh sửa dữ liệu'
 
-  const showForm = draft !== null && (drawerMode === 'create-form' || drawerMode === 'edit-form')
   const showDetail = drawerMode === 'edit-view' && viewRow !== undefined
 
   return (
     <Card title={props.title}>
       <Badge>Module nhập liệu</Badge>
       <p className="text-sm text-muted leading-relaxed">{props.description}</p>
+      {props.mockNotice ? (
+        <p className="text-sm leading-relaxed mt-2 mb-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
+          {props.mockNotice}
+        </p>
+      ) : null}
+      {props.importHint ? <p className="text-sm text-muted leading-relaxed mt-2 mb-0">{props.importHint}</p> : null}
 
       {/* Action bar */}
       <div className="flex flex-wrap items-center gap-3 my-4">
-        <Uploader onFileSelected={setFileName} />
+        <Uploader onFileSelected={setSelectedFile} placeholder={props.uploaderPlaceholder} />
+        {props.importFile ? (
+          <Button variant="secondary" onClick={() => void handleImport()} type="button">
+            {importing ? 'Đang import...' : props.importButtonLabel || 'Import file đã chọn'}
+          </Button>
+        ) : null}
         <Button
           variant="secondary"
           onClick={() => writeSheet(props.sampleRows as Array<Record<string, unknown>>, `${props.title}.xlsx`)}
@@ -196,9 +249,9 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         </Button>
       </div>
 
-      {fileName ? (
+      {selectedFile ? (
         <p className="text-sm text-muted mt-1">
-          Đã chọn: <span className="font-medium text-primary">{fileName}</span>
+          Đã chọn: <span className="font-medium text-primary">{selectedFile.name}</span>
         </p>
       ) : null}
 
@@ -209,13 +262,10 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         </div>
       ) : null}
 
-      {error ? <p className="text-accent text-sm mt-2">{error}</p> : null}
-
       {!loading && rows.length === 0 ? (
         <div className="mt-6 flex flex-col items-center gap-3 py-10 border border-dashed border-border rounded-xl text-center">
           <p className="text-muted text-sm leading-relaxed max-w-xs">
-            Chưa có dữ liệu. Dùng các nút phía trên (thêm thủ công / chọn file / tải mẫu) hoặc
-            import qua API khi đã tích hợp.
+            Chưa có dữ liệu.
           </p>
           <Button variant="secondary" onClick={openCreateDrawer}>
             Thêm bản ghi đầu tiên
@@ -234,98 +284,30 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         />
       ) : null}
 
-      <Drawer open={open} title={drawerTitle} onClose={closeDrawer}>
-        {showDetail ? (
-          <>
-            <dl className="grid gap-3">
-              {props.fields.map((field) => (
-                <div key={field.key} className="grid gap-1">
-                  <dt className="text-xs font-semibold text-muted uppercase tracking-wide">
-                    {field.label}
-                  </dt>
-                  <dd className="text-[15px] leading-relaxed break-words m-0">
-                    {formatDetailValue(viewRow[field.key])}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <div className="flex flex-wrap gap-3 mt-4">
-              <Button type="button" onClick={startEditFromView}>
-                Chỉnh sửa
-              </Button>
-            </div>
-          </>
-        ) : null}
-
-        {showForm && draft ? (
-          <form
-            className="grid gap-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              handleSave()
-            }}
-          >
-            {props.fields.map((field) => {
-              const err = formErrors[field.key]
-              const value = draft[field.key] ?? ''
-              if (field.kind === 'textarea') {
-                return (
-                  <FormField key={field.key} label={field.label} error={err}>
-                    <Textarea
-                      value={value}
-                      onChange={(next) =>
-                        setDraft((current) => (current ? { ...current, [field.key]: next } : current))
-                      }
-                    />
-                  </FormField>
-                )
-              }
-              if (field.kind === 'number') {
-                const displayValue: number | '' =
-                  value.trim() === '' ? '' : Number.isFinite(Number(value)) ? Number(value) : ''
-                return (
-                  <FormField key={field.key} label={field.label} error={err}>
-                    <NumberInput
-                      value={displayValue}
-                      onChange={(next) =>
-                        setDraft((current) =>
-                          current ? { ...current, [field.key]: next === '' ? '' : String(next) } : current,
-                        )
-                      }
-                    />
-                  </FormField>
-                )
-              }
-              return (
-                <FormField key={field.key} label={field.label} error={err}>
-                  <Input
-                    value={value}
-                    onChange={(next) =>
-                      setDraft((current) => (current ? { ...current, [field.key]: next } : current))
-                    }
-                  />
-                </FormField>
-              )
-            })}
-            <div className="flex flex-wrap gap-3 mt-2">
-              <Button type="submit">Lưu dữ liệu</Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  if (drawerMode === 'edit-form') {
-                    cancelFormToView()
-                  } else {
-                    closeDrawer()
-                  }
-                }}
-              >
-                {drawerMode === 'edit-form' ? 'Quay lại chi tiết' : 'Hủy'}
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </Drawer>
+      <ImportEntityDrawer
+        open={open}
+        drawerTitle={drawerTitle}
+        onClose={closeDrawer}
+        drawerMode={drawerMode}
+        fields={props.fields}
+        viewRow={viewRow}
+        showDetail={showDetail}
+        showForm={showForm}
+        draft={draft}
+        formErrors={formErrors}
+        selectOptionsByField={props.selectOptionsByField}
+        combinationSubjectOptions={props.combinationSubjectOptions}
+        combinationMap={combinationMap}
+        setCombinationMap={setCombinationMap}
+        scoreRows={scoreRows}
+        setScoreRows={setScoreRows}
+        updateDraftField={updateDraftField}
+        setDraft={setDraft}
+        startEditFromView={startEditFromView}
+        cancelFormToView={cancelFormToView}
+        handleSave={handleSave}
+        saving={saving}
+      />
     </Card>
   )
 }

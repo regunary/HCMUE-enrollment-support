@@ -3,6 +3,7 @@ export function NumberInput(props: {
   onChange: (value: number | '') => void
   min?: number
   max?: number
+  placeholder?: string
 }) {
   return (
     <input
@@ -11,6 +12,7 @@ export function NumberInput(props: {
       value={props.value === '' ? '' : props.value}
       min={props.min}
       max={props.max}
+      placeholder={props.placeholder}
       onChange={(event) => {
         const raw = event.target.value
         if (raw === '') {
