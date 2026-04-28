@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 from core.choices import ActionsChoices, RoleChoices, ScoreTypeChoices
 from src.programs.models import Subject
-from src.candidates.models import Candidate, CandidateLog, Region, RegionLog, RegionPriority, ScoreBoard, SubjectScore
+from src.candidates.models import Candidate, CandidateLog, PriorityObject, PriorityObjectLog, Region, RegionLog, RegionPriority, ScoreBoard, SubjectScore
 
 
 def make_xlsx(headers, rows):
@@ -98,6 +98,20 @@ class CandidateImportApiTests(TestCase):
         self.assertEqual(response.data['updated'], 0)
         self.assertEqual(response.data['errors'], [])
 
+    def test_import_priority_objects_creates_priority_object_master_data(self):
+        file = make_xlsx(['DT', 'DiemUT'], [['DT1', 1.0]])
+
+        response = self.client.post(
+            '/api/v1/candidates/priority-objects/import/',
+            {'file': file},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        self.assertEqual(response.data['errors'], [])
+        self.assertTrue(PriorityObject.objects.filter(code='DT1', bonus_score=1.0).exists())
+
     def test_candidate_import_rejects_unknown_region_code(self):
         file = make_xlsx(
             ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
@@ -134,9 +148,26 @@ class CandidateImportApiTests(TestCase):
         self.assertEqual(response.data['errors'][0]['code'], 'HOC_LUC_INVALID')
         self.assertFalse(Candidate.objects.filter(cccd='012345678901').exists())
 
+    def test_candidate_import_rejects_unknown_priority_object_code(self):
+        region_file = make_xlsx(['KV', 'DiemUT'], [['KV1', 0.25]])
+        self.client.post('/api/v1/candidates/regions/import/', {'file': region_file}, format='multipart')
+        file = make_xlsx(
+            ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
+            [['012345678901', 'KV1', 'UNKNOWN', 2025, 1, 8.5]],
+        )
+
+        response = self.client.post('/api/v1/candidates/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 0)
+        self.assertEqual(response.data['errors'][0]['code'], 'DT_NOT_FOUND')
+        self.assertFalse(Candidate.objects.filter(cccd='012345678901').exists())
+
     def test_candidate_import_creates_candidate_and_region_priority(self):
         region_file = make_xlsx(['KV', 'DiemUT'], [['KV1', 0.25]])
         self.client.post('/api/v1/candidates/regions/import/', {'file': region_file}, format='multipart')
+        priority_file = make_xlsx(['DT', 'DiemUT'], [['DT1', 1.0]])
+        self.client.post('/api/v1/candidates/priority-objects/import/', {'file': priority_file}, format='multipart')
         file = make_xlsx(
             ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
             [['012345678901', 'KV1', 'DT1', 2025, 1, 8.5]],
@@ -159,11 +190,13 @@ class CandidateImportApiTests(TestCase):
         priority = RegionPriority.objects.get(candidate=candidate)
         self.assertEqual(priority.region_code, 'KV1')
         self.assertEqual(priority.special_code, 'DT1')
-        self.assertEqual(priority.bonus_score, 0.25)
+        self.assertEqual(priority.bonus_score, 1.25)
 
     def test_candidate_import_blank_cells_do_not_overwrite_existing_values(self):
         region_file = make_xlsx(['KV', 'DiemUT'], [['KV1', 0.25]])
         self.client.post('/api/v1/candidates/regions/import/', {'file': region_file}, format='multipart')
+        priority_file = make_xlsx(['DT', 'DiemUT'], [['DT1', 1.0]])
+        self.client.post('/api/v1/candidates/priority-objects/import/', {'file': priority_file}, format='multipart')
         first_file = make_xlsx(
             ['CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'],
             [['012345678901', 'KV1', 'DT1', 2025, 1, 8.5]],
@@ -331,6 +364,7 @@ class CandidateManualApiTests(TestCase):
         )
         self.client.force_authenticate(self.user)
         self.region = Region.objects.create(code='KV1', bonus_score=0.25)
+        self.priority_object = PriorityObject.objects.create(code='DT1', bonus_score=1.0)
         self.math = Subject.objects.create(id='TO', name='Toán')
         self.literature = Subject.objects.create(id='VA', name='Văn')
 
@@ -346,6 +380,19 @@ class CandidateManualApiTests(TestCase):
         self.assertEqual(response.data['data']['code'], 'KV2')
         self.assertEqual(response.data['data']['bonus_score'], 0.5)
         self.assertTrue(Region.objects.filter(code='KV2', bonus_score=0.5).exists())
+
+    def test_create_priority_object_manually(self):
+        response = self.client.post(
+            '/api/v1/candidates/priority-objects/',
+            {'code': 'DT2', 'bonus_score': 1.5},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['data']['code'], 'DT2')
+        self.assertEqual(response.data['data']['bonus_score'], 1.5)
+        self.assertTrue(PriorityObject.objects.filter(code='DT2', bonus_score=1.5).exists())
 
     def test_create_candidate_manually_with_region_priority_and_scores(self):
         payload = {
@@ -367,7 +414,7 @@ class CandidateManualApiTests(TestCase):
         candidate = Candidate.objects.get(cccd='012345678901')
         self.assertEqual(response.data['data']['cccd'], candidate.cccd)
         self.assertEqual(response.data['data']['region_priority']['region_code'], 'KV1')
-        self.assertEqual(response.data['data']['region_priority']['bonus_score'], 0.25)
+        self.assertEqual(response.data['data']['region_priority']['bonus_score'], 1.25)
         self.assertEqual(len(response.data['data']['scores']), 2)
         self.assertEqual(RegionPriority.objects.get(candidate=candidate).special_code, 'DT1')
         self.assertEqual(ScoreBoard.objects.filter(candidate=candidate).count(), 2)
@@ -436,11 +483,12 @@ class CandidateManualApiTests(TestCase):
 
     def test_patch_candidate_replaces_scores(self):
         candidate = Candidate.objects.create(cccd='012345678901', graduation_year=2025, academic_level='1')
+        next_priority_object = PriorityObject.objects.create(code='DT2', bonus_score=1.5)
         RegionPriority.objects.create(
             candidate=candidate,
             region=self.region,
-            special_code='DT1',
-            bonus_score=self.region.bonus_score,
+            priority_object=self.priority_object,
+            bonus_score=self.region.bonus_score + self.priority_object.bonus_score,
         )
         board = ScoreBoard.objects.create(candidate=candidate, score_type='THPT')
         SubjectScore.objects.create(score_board=board, subject=self.math, score=8.0)
@@ -458,6 +506,7 @@ class CandidateManualApiTests(TestCase):
         candidate.refresh_from_db()
         self.assertEqual(candidate.graduation_score, 8.75)
         self.assertEqual(RegionPriority.objects.get(candidate=candidate).special_code, 'DT2')
+        self.assertEqual(RegionPriority.objects.get(candidate=candidate).bonus_score, self.region.bonus_score + next_priority_object.bonus_score)
         self.assertFalse(ScoreBoard.objects.filter(candidate=candidate, score_type='THPT').exists())
         self.assertEqual(SubjectScore.objects.get(score_board__candidate=candidate).subject_id, 'VA')
         self.assertEqual(response.data['data']['scores'][0]['score_type'], 'HOCBA')
@@ -482,4 +531,15 @@ class CandidateManualApiTests(TestCase):
         self.assertFalse(Region.objects.filter(code=region.code).exists())
         log = RegionLog.objects.get(code='KV2', action=ActionsChoices.DELETE)
         self.assertIsNone(log.region_id)
+        self.assertTrue(log.is_deleted)
+
+    def test_delete_priority_object_hard_deletes_record_and_keeps_delete_log(self):
+        priority_object = PriorityObject.objects.create(code='DT2', bonus_score=1.5)
+
+        response = self.client.delete('/api/v1/candidates/priority-objects/DT2/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(PriorityObject.objects.filter(code=priority_object.code).exists())
+        log = PriorityObjectLog.objects.get(code='DT2', action=ActionsChoices.DELETE)
+        self.assertIsNone(log.priority_object_id)
         self.assertTrue(log.is_deleted)

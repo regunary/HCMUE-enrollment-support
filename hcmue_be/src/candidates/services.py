@@ -14,6 +14,8 @@ from src.programs.models import Subject
 from src.candidates.models import (
     Candidate,
     CandidateLog,
+    PriorityObject,
+    PriorityObjectLog,
     Region,
     RegionLog,
     RegionPriority,
@@ -29,6 +31,7 @@ CELL_REF_RE = re.compile(r'([A-Z]+)(\d+)')
 NS = {'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 
 REGION_HEADERS = {'KV', 'DiemUT'}
+PRIORITY_OBJECT_HEADERS = {'DT', 'DiemUT'}
 CANDIDATE_HEADERS = {'CCCD', 'KV', 'DT', 'NamTN', 'HocLuc12', 'DiemTN'}
 SCORE_HEADERS = {
     'TO', 'VA', 'LI', 'LY', 'HO', 'SI', 'SU', 'DI', 'GDCD', 'GDKTPL', 'TI', 'CNNN', 'CNCN',
@@ -205,6 +208,63 @@ def import_regions(file_obj, user=None):
     return summary.as_response()
 
 
+def import_priority_objects(file_obj, user=None):
+    """
+    Import priority object master data from the DT/DiemUT Excel template.
+
+    Args:
+        file_obj: Uploaded .xlsx file object from the multipart request.
+        user: Authenticated user that initiated the import, stored on ImportBatch.
+
+    Returns:
+        Dictionary containing success status, counters, and row-level errors.
+
+    Raises:
+        ValueError: Raised with FILE_INVALID when the uploaded file is not a readable .xlsx file.
+    """
+
+    rows = _read_xlsx(file_obj)
+    summary = ImportSummary()
+    batch = _create_batch(file_obj, user)
+
+    headers, data_rows = _split_rows(rows)
+    missing = PRIORITY_OBJECT_HEADERS - set(headers)
+    if missing:
+        return _fail_batch(batch, summary, 'MISSING_REQUIRED_COLUMNS', f'Thiếu cột: {", ".join(sorted(missing))}')
+
+    for row_number, row in data_rows:
+        values = _row_values(headers, row)
+        code = _clean(values.get('DT'))
+        bonus_score = _to_decimal(values.get('DiemUT'))
+        if not code:
+            summary.errors.append(RowError(row_number, 'DT_REQUIRED', 'DT là bắt buộc', {'field': 'DT', 'value': code}))
+            continue
+        if bonus_score is None or bonus_score < 0:
+            summary.errors.append(RowError(row_number, 'SCORE_OUT_OF_RANGE', 'DiemUT không hợp lệ', {'field': 'DiemUT', 'value': values.get('DiemUT')}))
+            continue
+
+        with transaction.atomic():
+            priority_object, created = PriorityObject.objects.get_or_create(code=code, defaults={'bonus_score': bonus_score})
+            changed = []
+            if not created and priority_object.bonus_score != bonus_score:
+                priority_object.bonus_score = bonus_score
+                priority_object.action = ActionsChoices.UPDATE
+                changed.append('bonus_score')
+                priority_object.field_changed = ','.join(changed)
+                priority_object.save(update_fields=['bonus_score', 'action', 'field_changed', 'update_date'])
+            if created:
+                summary.created += 1
+                _log_priority_object(priority_object, ActionsChoices.CREATE)
+            elif changed:
+                summary.updated += 1
+                _log_priority_object(priority_object, ActionsChoices.UPDATE, ','.join(changed))
+            else:
+                summary.skipped += 1
+
+    _complete_batch(batch, summary)
+    return summary.as_response()
+
+
 def import_candidate_basic_info(file_obj, user=None):
     """
     Import candidate basic information from the ThongTinCoBan Excel template.
@@ -330,6 +390,44 @@ def delete_region_manually(region):
     return {'success': True}
 
 
+def create_priority_object_manually(validated_data):
+    """
+    Create one PriorityObject row from a JSON request.
+
+    Args:
+        validated_data: PriorityObjectSerializer validated data.
+
+    Returns:
+        API response payload containing the created priority object.
+    """
+
+    with transaction.atomic():
+        priority_object = PriorityObject.objects.create(**validated_data)
+        _log_priority_object(priority_object, ActionsChoices.CREATE)
+    return {'success': True, 'data': serialize_priority_object(priority_object)}
+
+
+def delete_priority_object_manually(priority_object):
+    """
+    Hard-delete one PriorityObject after writing a DELETE audit snapshot.
+
+    Args:
+        priority_object: PriorityObject instance resolved by the detail API.
+
+    Returns:
+        API response payload confirming the deletion.
+    """
+
+    with transaction.atomic():
+        priority_object.is_deleted = True
+        priority_object.deleted_at = timezone.now()
+        priority_object.action = ActionsChoices.DELETE
+        priority_object.field_changed = 'deleted'
+        _log_priority_object(priority_object, ActionsChoices.DELETE, priority_object.field_changed)
+        priority_object.delete()
+    return {'success': True}
+
+
 def create_candidate_manually(validated_data):
     """
     Create a candidate, optional region priority, and optional score rows from JSON.
@@ -418,6 +516,20 @@ def serialize_region(region):
     return {'code': region.code, 'bonus_score': region.bonus_score}
 
 
+def serialize_priority_object(priority_object):
+    """
+    Serialize PriorityObject for API responses.
+
+    Args:
+        priority_object: PriorityObject instance to serialize.
+
+    Returns:
+        Dictionary containing priority object code and bonus score.
+    """
+
+    return {'code': priority_object.code, 'bonus_score': priority_object.bonus_score}
+
+
 def serialize_candidate(candidate):
     """
     Serialize Candidate with nested region priority and score rows.
@@ -475,12 +587,14 @@ def _save_manual_region_priority(candidate, data):
         return None
 
     region = Region.objects.get(code=region_code)
+    priority_object = PriorityObject.objects.get(code=special_code) if special_code else None
+    bonus_score = region.bonus_score + (priority_object.bonus_score if priority_object else 0)
     priority, created = RegionPriority.objects.get_or_create(
         candidate=candidate,
         defaults={
             'region': region,
-            'special_code': special_code or None,
-            'bonus_score': region.bonus_score,
+            'priority_object': priority_object,
+            'bonus_score': bonus_score,
         },
     )
     if created:
@@ -490,15 +604,18 @@ def _save_manual_region_priority(candidate, data):
     changed = []
     if priority.region_code != region.code:
         priority.region = region
-        priority.bonus_score = region.bonus_score
         changed.extend(['region_code', 'bonus_score'])
-    if priority.special_code != (special_code or None):
-        priority.special_code = special_code or None
-        changed.append('special_code')
+    if priority.special_code != (priority_object.code if priority_object else None):
+        priority.priority_object = priority_object
+        changed.extend(['special_code', 'bonus_score'])
+    if priority.bonus_score != bonus_score:
+        priority.bonus_score = bonus_score
+        if 'bonus_score' not in changed:
+            changed.append('bonus_score')
     if changed:
         priority.action = ActionsChoices.UPDATE
         priority.field_changed = ','.join(changed)
-        priority.save(update_fields=['region', 'special_code', 'bonus_score', 'action', 'field_changed', 'update_date'])
+        priority.save(update_fields=['region', 'priority_object', 'bonus_score', 'action', 'field_changed', 'update_date'])
         _log_region_priority(priority, ActionsChoices.UPDATE, priority.field_changed)
     return priority
 
@@ -713,6 +830,12 @@ def _validate_candidate_row(row_number, values):
     if region_code and not Region.objects.filter(code=region_code, is_deleted=False).exists():
         return RowError(row_number, 'KV_NOT_FOUND', 'KV chưa tồn tại trong danh mục khu vực', {'field': 'KV', 'value': region_code})
 
+    special_code = _clean(values.get('DT'))
+    if special_code and not PriorityObject.objects.filter(code=special_code, is_deleted=False).exists():
+        return RowError(row_number, 'DT_NOT_FOUND', 'DT chưa tồn tại trong danh mục đối tượng ưu tiên', {'field': 'DT', 'value': special_code})
+    if special_code and not region_code:
+        return RowError(row_number, 'KV_REQUIRED', 'KV là bắt buộc khi có DT', {'field': 'KV', 'value': region_code})
+
     academic_level = _clean(values.get('HocLuc12'))
     if academic_level and academic_level not in {'0', '1'}:
         return RowError(row_number, 'HOC_LUC_INVALID', 'HocLuc12 chỉ nhận 0 hoặc 1', {'field': 'HocLuc12', 'value': academic_level})
@@ -874,24 +997,30 @@ def _upsert_region_priority(candidate, values):
         return False
 
     defaults = {}
+    region = None
+    priority_object = None
     if region_code:
         region = Region.objects.get(code=region_code)
         defaults['region'] = region
-        defaults['bonus_score'] = region.bonus_score
     if special_code:
-        defaults['special_code'] = special_code
+        priority_object = PriorityObject.objects.get(code=special_code)
+        defaults['priority_object'] = priority_object
+    defaults['bonus_score'] = _priority_bonus_score(region, priority_object)
 
     priority, created = RegionPriority.objects.get_or_create(candidate=candidate, defaults=defaults)
     changed = []
     if not created:
         if region_code and priority.region_code != region_code:
-            region = Region.objects.get(code=region_code)
             priority.region = region
-            priority.bonus_score = region.bonus_score
             changed.extend(['region_code', 'bonus_score'])
         if special_code and priority.special_code != special_code:
-            priority.special_code = special_code
-            changed.append('special_code')
+            priority.priority_object = priority_object
+            changed.extend(['special_code', 'bonus_score'])
+        bonus_score = _priority_bonus_score(priority.region, priority.priority_object)
+        if priority.bonus_score != bonus_score:
+            priority.bonus_score = bonus_score
+            if 'bonus_score' not in changed:
+                changed.append('bonus_score')
 
     if created:
         _log_region_priority(priority, ActionsChoices.CREATE)
@@ -899,10 +1028,30 @@ def _upsert_region_priority(candidate, values):
     if changed:
         priority.action = ActionsChoices.UPDATE
         priority.field_changed = ','.join(changed)
-        priority.save(update_fields=['region', 'special_code', 'bonus_score', 'action', 'field_changed', 'update_date'])
+        priority.save(update_fields=['region', 'priority_object', 'bonus_score', 'action', 'field_changed', 'update_date'])
         _log_region_priority(priority, ActionsChoices.UPDATE, priority.field_changed)
         return True
     return False
+
+
+def _priority_bonus_score(region, priority_object):
+    """
+    Calculate the stored total priority score from region and priority object.
+
+    Args:
+        region: Region instance or None.
+        priority_object: PriorityObject instance or None.
+
+    Returns:
+        Decimal total bonus score.
+    """
+
+    total = Decimal('0')
+    if region:
+        total += region.bonus_score
+    if priority_object:
+        total += priority_object.bonus_score
+    return total
 
 
 def _assign_if_present(instance, field_name, value, changes):
@@ -997,6 +1146,27 @@ def _log_region(region, action, field_changed=''):
         bonus_score=region.bonus_score,
         is_deleted=region.is_deleted,
         deleted_at=region.deleted_at,
+        action=action,
+        field_changed=field_changed,
+    )
+
+
+def _log_priority_object(priority_object, action, field_changed=''):
+    """
+    Snapshot a PriorityObject change into PriorityObjectLog.
+
+    Args:
+        priority_object: PriorityObject instance after the create, update, or delete.
+        action: Audit action from ActionsChoices.
+        field_changed: Comma-separated list of changed fields.
+    """
+
+    PriorityObjectLog.objects.create(
+        priority_object=priority_object,
+        code=priority_object.code,
+        bonus_score=priority_object.bonus_score,
+        is_deleted=priority_object.is_deleted,
+        deleted_at=priority_object.deleted_at,
         action=action,
         field_changed=field_changed,
     )

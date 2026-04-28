@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from core.choices import ScoreTypeChoices
 from src.programs.models import Subject
-from src.candidates.models import Candidate, Region
+from src.candidates.models import Candidate, PriorityObject, Region
 
 
 class ImportFileSerializer(serializers.Serializer):
@@ -43,6 +43,33 @@ class RegionSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
+class PriorityObjectSerializer(serializers.ModelSerializer):
+    """
+    Validate and serialize manually managed priority object master data.
+
+    Fields:
+        code: Priority object code used by candidate region_priority.special_code.
+        bonus_score: Priority score copied to RegionPriority during candidate entry.
+    """
+
+    class Meta:
+        model = PriorityObject
+        fields = ['code', 'bonus_score']
+
+    def validate_code(self, value):
+        """
+        Normalize the priority object code before uniqueness validation.
+
+        Args:
+            value: Raw priority object code from the request body.
+
+        Returns:
+            Trimmed priority object code.
+        """
+
+        return value.strip()
+
+
 class RegionPriorityInputSerializer(serializers.Serializer):
     """
     Validate candidate priority-region input.
@@ -69,6 +96,22 @@ class RegionPriorityInputSerializer(serializers.Serializer):
         code = value.strip()
         if code and not Region.objects.filter(code=code, is_deleted=False).exists():
             raise serializers.ValidationError('Khu vực không tồn tại.')
+        return code
+
+    def validate_special_code(self, value):
+        """
+        Ensure selected priority object exists in PriorityObject master data.
+
+        Args:
+            value: Priority object code selected by the operator.
+
+        Returns:
+            Trimmed priority object code, or an empty string when no object was selected.
+        """
+
+        code = value.strip() if value else ''
+        if code and not PriorityObject.objects.filter(code=code, is_deleted=False).exists():
+            raise serializers.ValidationError('Đối tượng ưu tiên không tồn tại.')
         return code
 
 

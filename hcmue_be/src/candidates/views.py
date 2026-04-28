@@ -5,21 +5,25 @@ from rest_framework.response import Response
 from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
-from src.candidates.models import Candidate, Region
-from src.candidates.serializers import CandidateManualSerializer, ImportFileSerializer, RegionSerializer
+from src.candidates.models import Candidate, PriorityObject, Region
+from src.candidates.serializers import CandidateManualSerializer, ImportFileSerializer, PriorityObjectSerializer, RegionSerializer
 from src.candidates.services import (
     APTITUDE_SCORE_COLUMNS,
     DGNL_SCORE_COLUMNS,
     HOCBA_SCORE_COLUMNS,
     THPT_SCORE_COLUMNS,
     create_candidate_manually,
+    create_priority_object_manually,
     create_region_manually,
     delete_candidate_manually,
+    delete_priority_object_manually,
     delete_region_manually,
     import_candidate_basic_info,
     import_candidate_scores,
+    import_priority_objects,
     import_regions,
     serialize_candidate,
+    serialize_priority_object,
     serialize_region,
     update_candidate_manually,
 )
@@ -157,6 +161,98 @@ class RegionDetailView(GenericAPIView):
 
         try:
             return Response(delete_region_manually(self.get_object(pk)))
+        except ProtectedError:
+            return Response(
+                {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+
+class PriorityObjectListCreateView(GenericAPIView):
+    """
+    List and create priority object master data manually.
+
+    Request:
+        GET has no body. POST expects JSON with code and bonus_score.
+
+    Response:
+        GET returns dropdown-ready priority object rows. POST returns the created object.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = PriorityObjectSerializer
+
+    def get(self, request):
+        """
+        Return active priority objects for frontend dropdowns.
+
+        Args:
+            request: DRF request.
+
+        Returns:
+            DRF Response with success flag and priority object results.
+        """
+
+        priority_objects = PriorityObject.objects.filter(is_deleted=False).order_by('code')
+        return Response({'success': True, 'results': [serialize_priority_object(item) for item in priority_objects]})
+
+    def post(self, request):
+        """
+        Validate and create one priority object from JSON.
+
+        Args:
+            request: DRF request containing priority object JSON payload.
+
+        Returns:
+            DRF Response with created priority object or validation errors.
+        """
+
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(create_priority_object_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
+
+
+class PriorityObjectDetailView(GenericAPIView):
+    """
+    Delete one priority object master-data row.
+
+    Request:
+        DELETE has no body and uses the priority object code from URL.
+
+    Response:
+        success=true when the row is removed from the main table after logging.
+    """
+
+    permission_classes = [IsAdmin]
+
+    def get_object(self, pk):
+        """
+        Resolve a non-deleted priority object by code.
+
+        Args:
+            pk: Priority object code from the URL.
+
+        Returns:
+            PriorityObject instance.
+        """
+
+        return get_object_or_404(PriorityObject.objects.filter(is_deleted=False), pk=pk)
+
+    def delete(self, request, pk):
+        """
+        Hard-delete one priority object after writing its DELETE log.
+
+        Args:
+            request: DRF request.
+            pk: Priority object code from the URL.
+
+        Returns:
+            DRF Response confirming deletion, or DELETE_PROTECTED if referenced.
+        """
+
+        try:
+            return Response(delete_priority_object_manually(self.get_object(pk)))
         except ProtectedError:
             return Response(
                 {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
@@ -313,6 +409,43 @@ class RegionImportView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             data = import_regions(serializer.validated_data['file'], request.user)
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(data)
+
+
+class PriorityObjectImportView(GenericAPIView):
+    """
+    Handle priority object master-data import requests.
+
+    Request:
+        multipart/form-data with required file field containing the DT/DiemUT .xlsx file.
+
+    Response:
+        Import summary with created, updated, skipped, and row-level errors.
+    """
+
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    def post(self, request):
+        """
+        Validate the uploaded file and delegate import work to the priority object service.
+
+        Args:
+            request: DRF request containing multipart upload data.
+
+        Returns:
+            DRF Response with import summary or FILE_INVALID error.
+        """
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = import_priority_objects(serializer.validated_data['file'], request.user)
         except ValueError:
             return Response(
                 {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},

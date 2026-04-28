@@ -78,6 +78,80 @@ Response `200`:
 }
 ```
 
+### get: `/api/v1/candidates/priority-objects/`
+- Mô tả: Lấy danh mục đối tượng ưu tiên để FE hiển thị dropdown.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "code": "DT1",
+      "bonus_score": 1.0
+    }
+  ]
+}
+```
+
+### post: `/api/v1/candidates/priority-objects/`
+- Mô tả: Thêm đối tượng ưu tiên thủ công.
+- Body:
+```json
+{
+  "code": "DT1",
+  "bonus_score": 1.0
+}
+```
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "code": "DT1",
+    "bonus_score": 1.0
+  }
+}
+```
+
+### delete: `/api/v1/candidates/priority-objects/{code}/`
+- Mô tả: Xoá cứng đối tượng ưu tiên khỏi bảng chính sau khi ghi log `DELETE`.
+- Rule:
+  - Nếu đối tượng ưu tiên đang được thí sinh tham chiếu thì trả `409 DELETE_PROTECTED`.
+  - Bảng `priority_object_log` vẫn giữ snapshot record đã xoá.
+
+Response `200`:
+```json
+{
+  "success": true
+}
+```
+
+### post: `/api/v1/candidates/priority-objects/import/`
+- Mô tả: Nhập danh mục đối tượng ưu tiên trước khi nhập thông tin thí sinh.
+- Required columns: `DT, DiemUT`
+- Rule:
+  - `DT` là mã đối tượng ưu tiên, unique theo danh mục.
+  - `DiemUT` là điểm ưu tiên đối tượng.
+  - Khi import thí sinh, cột `DT` nếu có giá trị thì phải tồn tại trong danh mục này.
+- Error codes:
+  - `FILE_INVALID`
+  - `MISSING_REQUIRED_COLUMNS`
+  - `DT_REQUIRED`
+  - `SCORE_OUT_OF_RANGE`
+
+Response `200` (ví dụ):
+```json
+{
+  "success": true,
+  "created": 3,
+  "updated": 1,
+  "skipped": 0,
+  "errors": []
+}
+```
+
 ### post: `/api/v1/candidates/regions/import/`
 - Mô tả: Nhập danh mục khu vực trước khi nhập thông tin thí sinh.
 - Required columns: `KV, DiemUT`
@@ -135,6 +209,8 @@ Validation:
 - `academic_level`: optional, chỉ nhận `"0"` hoặc `"1"`.
 - `graduation_score`: optional, decimal trong `0..10`.
 - `region_priority.region_code`: optional, nếu có phải tồn tại trong danh mục khu vực.
+- `region_priority.special_code`: optional, nếu có phải tồn tại trong danh mục đối tượng ưu tiên.
+- `region_priority.bonus_score` trong response là tổng điểm ưu tiên từ khu vực và đối tượng.
 - `scores[].score_type`: một trong `HOCBA | THPT | DGNL | CB`.
 - `scores[].subject_id`: phải tồn tại trong bảng môn học.
 - `scores[].score`: optional, decimal trong `0..10`.
@@ -153,7 +229,7 @@ Response `201`:
     "graduation_score": 8.5,
     "region_priority": {
       "region_code": "KV1",
-      "bonus_score": 0.25,
+      "bonus_score": 1.25,
       "special_code": "DT1"
     },
     "scores": [
@@ -210,6 +286,7 @@ Validation error `400`:
   "details": {
     "cccd": ["CCCD phải đúng 12 chữ số."],
     "region_priority.region_code": ["Khu vực không tồn tại."],
+    "region_priority.special_code": ["Đối tượng ưu tiên không tồn tại."],
     "scores.0.subject_id": ["Môn học không tồn tại."],
     "scores.1": ["Trùng score_type và subject_id."]
   }
@@ -224,13 +301,18 @@ Validation error `400`:
   - Điểm thi ĐG Năng lực: `TO_NL, VA_NL, LI_NL, HO_NL, SI_NL, TA_NL`
   - Điểm thi Năng khiếu: `NK2, NK3, NK4, NK5`
   - ĐIểm Học bạ: `TO_HB, VA_HB, LI_HB, HO_HB, SI_HB, SU_HB, DI_HB, TA_HB, TI_HB, CNNN_HB, CNCN_HB, GDCD_HB, GDKTPL_HB`
-- Rule: merge theo `CCCD`, ô trống không ghi đè `null`
+- Rule:
+  - Merge theo `CCCD`, ô trống không ghi đè `null`.
+  - Cột `KV` nếu có giá trị thì phải tồn tại trong danh mục khu vực.
+  - Cột `DT` nếu có giá trị thì phải tồn tại trong danh mục đối tượng ưu tiên.
+  - `bonus_score` lưu trên thí sinh là tổng điểm ưu tiên từ `KV + DT`.
 - Error codes:
   - `FILE_INVALID`
   - `MISSING_REQUIRED_COLUMNS`
   - `CCCD_REQUIRED`
   - `CCCD_FORMAT`
   - `KV_NOT_FOUND`
+  - `DT_NOT_FOUND`
   - `HOC_LUC_INVALID`
   - `SCORE_OUT_OF_RANGE`
   - `FILE_MIXED_TYPES`
