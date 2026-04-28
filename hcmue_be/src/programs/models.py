@@ -13,7 +13,7 @@ class Subject(AuditModel):
 
 
 class SubjectLog(models.Model):
-    subject       = models.ForeignKey(Subject, on_delete=models.CASCADE, db_column='subject_id')
+    subject       = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, db_column='subject_id')
     name          = models.CharField(max_length=100)
     action        = models.CharField(max_length=10, choices=ActionsChoices.choices)
     field_changed = models.CharField(max_length=500, null=True, blank=True)
@@ -32,7 +32,7 @@ class SubjectCombination(AuditModel):
 
 
 class SubjectCombinationLog(models.Model):
-    subject_combination = models.ForeignKey(SubjectCombination, on_delete=models.CASCADE, db_column='subject_combination_id')
+    subject_combination = models.ForeignKey(SubjectCombination, on_delete=models.SET_NULL, null=True, blank=True, db_column='subject_combination_id')
     name                = models.CharField(max_length=100)
     action              = models.CharField(max_length=10, choices=ActionsChoices.choices)
     field_changed       = models.CharField(max_length=500, null=True, blank=True)
@@ -70,7 +70,7 @@ class CombinationSubject(AuditModel):
 
 
 class CombinationSubjectLog(models.Model):
-    combination_subject    = models.ForeignKey(CombinationSubject, on_delete=models.CASCADE, db_column='combination_subject_id')
+    combination_subject    = models.ForeignKey(CombinationSubject, on_delete=models.SET_NULL, null=True, blank=True, db_column='combination_subject_id')
     subject_combination_id = models.CharField(max_length=20)
     subject_id             = models.CharField(max_length=10)
     weight                 = models.DecimalField(max_digits=5, decimal_places=3)
@@ -95,7 +95,7 @@ class Major(AuditModel):
 
 
 class MajorLog(models.Model):
-    major         = models.ForeignKey(Major, on_delete=models.CASCADE, db_column='major_id')
+    major         = models.ForeignKey(Major, on_delete=models.SET_NULL, null=True, blank=True, db_column='major_id')
     name          = models.CharField(max_length=200)
     quota         = models.PositiveIntegerField(null=True, blank=True)
     action        = models.CharField(max_length=10, choices=ActionsChoices.choices)
@@ -123,7 +123,7 @@ class MajorCombination(AuditModel):
 
 
 class MajorCombinationLog(models.Model):
-    major_combination      = models.ForeignKey(MajorCombination, on_delete=models.CASCADE, db_column='major_combination_id')
+    major_combination      = models.ForeignKey(MajorCombination, on_delete=models.SET_NULL, null=True, blank=True, db_column='major_combination_id')
     major_id               = models.CharField(max_length=10)
     subject_combination_id = models.CharField(max_length=20)
     min_score              = models.DecimalField(max_digits=5, decimal_places=2)
@@ -149,7 +149,7 @@ class CutoffScore(AuditModel):
 
 
 class CutoffScoreLog(models.Model):
-    cutoff_score         = models.ForeignKey(CutoffScore, on_delete=models.CASCADE, db_column='cutoff_score_id')
+    cutoff_score         = models.ForeignKey(CutoffScore, on_delete=models.SET_NULL, null=True, blank=True, db_column='cutoff_score_id')
     major_combination_id = models.IntegerField()
     cutoff               = models.DecimalField(max_digits=5, decimal_places=2)
     round                = models.PositiveSmallIntegerField()
@@ -174,7 +174,7 @@ class AdmissionCondition(AuditModel):
 
 
 class AdmissionConditionLog(models.Model):
-    admission_condition  = models.ForeignKey(AdmissionCondition, on_delete=models.CASCADE, db_column='admission_condition_id')
+    admission_condition  = models.ForeignKey(AdmissionCondition, on_delete=models.SET_NULL, null=True, blank=True, db_column='admission_condition_id')
     major_combination_id = models.IntegerField()
     subject_id           = models.CharField(max_length=10, null=True, blank=True)
     min_subject_score    = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)

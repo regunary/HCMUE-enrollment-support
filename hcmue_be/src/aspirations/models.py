@@ -23,7 +23,7 @@ class Aspiration(AuditModel):
 
 
 class AspirationLog(models.Model):
-    aspiration           = models.ForeignKey(Aspiration, on_delete=models.CASCADE, db_column='aspiration_id')
+    aspiration           = models.ForeignKey(Aspiration, on_delete=models.SET_NULL, null=True, blank=True, db_column='aspiration_id')
     candidate_id         = models.UUIDField()
     major_combination_id = models.IntegerField()
     rank                 = models.PositiveSmallIntegerField()
@@ -51,7 +51,7 @@ class AdmissionResult(AuditModel):
 
 
 class AdmissionResultLog(models.Model):
-    admission_result = models.ForeignKey(AdmissionResult, on_delete=models.CASCADE, db_column='admission_result_id')
+    admission_result = models.ForeignKey(AdmissionResult, on_delete=models.SET_NULL, null=True, blank=True, db_column='admission_result_id')
     aspiration_id    = models.IntegerField()
     status           = models.CharField(max_length=10, choices=AdmissionStatusChoices.choices)
     admitted_at      = models.DateTimeField(null=True, blank=True)
@@ -81,7 +81,7 @@ class PassedCandidate(AuditModel):
 
 
 class PassedCandidateLog(models.Model):
-    passed_candidate     = models.ForeignKey(PassedCandidate, on_delete=models.CASCADE, db_column='passed_candidate_id')
+    passed_candidate     = models.ForeignKey(PassedCandidate, on_delete=models.SET_NULL, null=True, blank=True, db_column='passed_candidate_id')
     candidate_id         = models.UUIDField()
     major_combination_id = models.IntegerField()
     reason               = models.TextField(blank=True, default='')

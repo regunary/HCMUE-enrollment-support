@@ -65,6 +65,19 @@ Response `201`:
 }
 ```
 
+### delete: `/api/v1/candidates/regions/{code}/`
+- Mô tả: Xoá cứng khu vực khỏi bảng chính sau khi ghi log `DELETE`.
+- Rule:
+  - Nếu khu vực đang được thí sinh tham chiếu thì trả `409 DELETE_PROTECTED`.
+  - Bảng `region_log` vẫn giữ snapshot record đã xoá.
+
+Response `200`:
+```json
+{
+  "success": true
+}
+```
+
 ### post: `/api/v1/candidates/regions/import/`
 - Mô tả: Nhập danh mục khu vực trước khi nhập thông tin thí sinh.
 - Required columns: `KV, DiemUT`
@@ -175,6 +188,19 @@ Response `201`:
 ```
 
 Response `200`: cùng shape với `post /api/v1/candidates/`.
+
+### delete: `/api/v1/candidates/{id}/`
+- Mô tả: Xoá cứng thí sinh khỏi bảng chính sau khi ghi log `DELETE`.
+- Rule:
+  - Các dữ liệu con dùng `CASCADE` theo model sẽ bị xoá theo record chính.
+  - Bảng `candidate_log` vẫn giữ snapshot record đã xoá.
+
+Response `200`:
+```json
+{
+  "success": true
+}
+```
 
 Validation error `400`:
 ```json
@@ -423,6 +449,19 @@ Response `201`:
 
 Response `200`: cùng shape với `post /api/v1/subjects/`.
 
+### delete: `/api/v1/subjects/{id}/`
+- Mô tả: Xoá cứng môn học khỏi bảng chính sau khi ghi log `DELETE`.
+- Rule:
+  - Nếu môn học đang được điểm/tổ hợp tham chiếu thì trả `409 DELETE_PROTECTED`.
+  - Bảng `subject_log` vẫn giữ snapshot record đã xoá.
+
+Response `200`:
+```json
+{
+  "success": true
+}
+```
+
 ### post: `/api/v1/subjects/import/`
 - Mô tả: Import danh mục môn học trước khi import tổ hợp hoặc điểm.
 - Required columns: `MaMon, TenMon`
@@ -539,6 +578,20 @@ Response `201`:
 ```
 
 Response `200`: cùng shape với `post /api/v1/combinations/`.
+
+### delete: `/api/v1/combinations/{id}/`
+- Mô tả: Xoá cứng tổ hợp khỏi bảng chính sau khi ghi log `DELETE`.
+- Rule:
+  - Các dòng môn thuộc tổ hợp bị xoá theo tổ hợp.
+  - Nếu tổ hợp đang được ngành/nguyện vọng tham chiếu qua ràng buộc `PROTECT` thì trả `409 DELETE_PROTECTED`.
+  - Bảng `subject_combination_log` vẫn giữ snapshot record đã xoá.
+
+Response `200`:
+```json
+{
+  "success": true
+}
+```
 
 Validation error `400`:
 ```json

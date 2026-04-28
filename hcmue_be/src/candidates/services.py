@@ -6,6 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 
 from django.db import transaction
+from django.utils import timezone
 
 from core.choices import ActionsChoices, ImportStatusChoices
 from src.imports.models import ImportBatch
@@ -308,6 +309,27 @@ def create_region_manually(validated_data):
     return {'success': True, 'data': serialize_region(region)}
 
 
+def delete_region_manually(region):
+    """
+    Hard-delete one Region after writing a DELETE audit snapshot.
+
+    Args:
+        region: Region instance resolved by the detail API.
+
+    Returns:
+        API response payload confirming the deletion.
+    """
+
+    with transaction.atomic():
+        region.is_deleted = True
+        region.deleted_at = timezone.now()
+        region.action = ActionsChoices.DELETE
+        region.field_changed = 'deleted'
+        _log_region(region, ActionsChoices.DELETE, region.field_changed)
+        region.delete()
+    return {'success': True}
+
+
 def create_candidate_manually(validated_data):
     """
     Create a candidate, optional region priority, and optional score rows from JSON.
@@ -359,6 +381,27 @@ def update_candidate_manually(candidate, validated_data):
         if scores is not None:
             _replace_manual_scores(candidate, scores)
     return {'success': True, 'data': serialize_candidate(candidate)}
+
+
+def delete_candidate_manually(candidate):
+    """
+    Hard-delete one Candidate after writing a DELETE audit snapshot.
+
+    Args:
+        candidate: Candidate instance resolved by the detail API.
+
+    Returns:
+        API response payload confirming the deletion.
+    """
+
+    with transaction.atomic():
+        candidate.is_deleted = True
+        candidate.deleted_at = timezone.now()
+        candidate.action = ActionsChoices.DELETE
+        candidate.field_changed = 'deleted'
+        _log_candidate(candidate, ActionsChoices.DELETE, candidate.field_changed)
+        candidate.delete()
+    return {'success': True}
 
 
 def serialize_region(region):

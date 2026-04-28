@@ -22,7 +22,7 @@ class ImportBatch(AuditModel):
 
 
 class ImportBatchLog(models.Model):
-    import_batch   = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, db_column='import_batch_id')
+    import_batch   = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, db_column='import_batch_id')
     file_name      = models.CharField(max_length=255)
     imported_by_id = models.UUIDField(null=True, blank=True)
     status         = models.CharField(max_length=15, choices=ImportStatusChoices.choices)

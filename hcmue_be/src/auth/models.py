@@ -49,7 +49,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class UserLog(models.Model):
-    user          = models.ForeignKey(User, on_delete=models.CASCADE, db_column='user_id')
+    user          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, db_column='user_id')
     username      = models.CharField(max_length=150)
     fullname      = models.CharField(max_length=200)
     email         = models.EmailField(null=True, blank=True)

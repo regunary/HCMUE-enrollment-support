@@ -8,9 +8,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.choices import RoleChoices, ScoreTypeChoices
+from core.choices import ActionsChoices, RoleChoices, ScoreTypeChoices
 from src.programs.models import Subject
-from src.candidates.models import Candidate, Region, RegionPriority, ScoreBoard, SubjectScore
+from src.candidates.models import Candidate, CandidateLog, Region, RegionLog, RegionPriority, ScoreBoard, SubjectScore
 
 
 def make_xlsx(headers, rows):
@@ -461,3 +461,25 @@ class CandidateManualApiTests(TestCase):
         self.assertFalse(ScoreBoard.objects.filter(candidate=candidate, score_type='THPT').exists())
         self.assertEqual(SubjectScore.objects.get(score_board__candidate=candidate).subject_id, 'VA')
         self.assertEqual(response.data['data']['scores'][0]['score_type'], 'HOCBA')
+
+    def test_delete_candidate_hard_deletes_record_and_keeps_delete_log(self):
+        candidate = Candidate.objects.create(cccd='012345678901', graduation_year=2025)
+
+        response = self.client.delete(f'/api/v1/candidates/{candidate.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Candidate.objects.filter(id=candidate.id).exists())
+        log = CandidateLog.objects.get(cccd='012345678901', action=ActionsChoices.DELETE)
+        self.assertIsNone(log.candidate_id)
+        self.assertTrue(log.is_deleted)
+
+    def test_delete_region_hard_deletes_record_and_keeps_delete_log(self):
+        region = Region.objects.create(code='KV2', bonus_score=0.5)
+
+        response = self.client.delete('/api/v1/candidates/regions/KV2/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Region.objects.filter(code=region.code).exists())
+        log = RegionLog.objects.get(code='KV2', action=ActionsChoices.DELETE)
+        self.assertIsNone(log.region_id)
+        self.assertTrue(log.is_deleted)

@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.response import Response
+from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
 from src.programs.models import Subject, SubjectCombination
@@ -8,6 +9,8 @@ from src.programs.serializers import CombinationManualSerializer, ImportFileSeri
 from src.programs.services import (
     create_combination_manually,
     create_subject_manually,
+    delete_combination_manually,
+    delete_subject_manually,
     import_combinations,
     import_subjects,
     serialize_combination,
@@ -212,6 +215,26 @@ class SubjectDetailView(GenericAPIView):
             return validation_error_response(serializer.errors)
         return Response(update_subject_manually(subject, serializer.validated_data))
 
+    def delete(self, request, pk):
+        """
+        Hard-delete one subject after writing its DELETE log.
+
+        Args:
+            request: DRF request.
+            pk: Subject.id from the URL.
+
+        Returns:
+            DRF Response confirming deletion, or DELETE_PROTECTED if referenced.
+        """
+
+        try:
+            return Response(delete_subject_manually(self.get_object(pk)))
+        except ProtectedError:
+            return Response(
+                {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
 
 class CombinationDetailView(GenericAPIView):
     """
@@ -271,6 +294,26 @@ class CombinationDetailView(GenericAPIView):
         if not serializer.is_valid():
             return validation_error_response(serializer.errors)
         return Response(update_combination_manually(combination, serializer.validated_data))
+
+    def delete(self, request, pk):
+        """
+        Hard-delete one subject combination after writing its DELETE log.
+
+        Args:
+            request: DRF request.
+            pk: SubjectCombination.id from the URL.
+
+        Returns:
+            DRF Response confirming deletion, or DELETE_PROTECTED if referenced.
+        """
+
+        try:
+            return Response(delete_combination_manually(self.get_object(pk)))
+        except ProtectedError:
+            return Response(
+                {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
+                status=status.HTTP_409_CONFLICT,
+            )
 
 
 class CombinationImportView(GenericAPIView):

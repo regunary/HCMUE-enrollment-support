@@ -19,7 +19,7 @@ class PercentileSnapshot(AuditModel):
 
 
 class PercentileSnapshotLog(models.Model):
-    percentile_snapshot  = models.ForeignKey(PercentileSnapshot, on_delete=models.CASCADE, db_column='percentile_snapshot_id')
+    percentile_snapshot  = models.ForeignKey(PercentileSnapshot, on_delete=models.SET_NULL, null=True, blank=True, db_column='percentile_snapshot_id')
     major_combination_id = models.IntegerField()
     percentile           = models.PositiveSmallIntegerField()
     score                = models.DecimalField(max_digits=5, decimal_places=2)

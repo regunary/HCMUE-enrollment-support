@@ -96,6 +96,25 @@ def update_subject_manually(subject, validated_data):
     return {'success': True, 'data': serialize_subject(subject)}
 
 
+def delete_subject_manually(subject):
+    """
+    Hard-delete one Subject after writing a DELETE audit snapshot.
+
+    Args:
+        subject: Subject instance resolved by the detail API.
+
+    Returns:
+        API response payload confirming the deletion.
+    """
+
+    with transaction.atomic():
+        subject.action = ActionsChoices.DELETE
+        subject.field_changed = 'deleted'
+        _log_subject(subject, ActionsChoices.DELETE, subject.field_changed)
+        subject.delete()
+    return {'success': True}
+
+
 def serialize_subject(subject):
     """
     Serialize Subject for API responses.
@@ -193,6 +212,25 @@ def update_combination_manually(combination, validated_data):
         if subjects is not None:
             _replace_combination_subjects(combination, subjects)
     return {'success': True, 'data': serialize_combination(combination)}
+
+
+def delete_combination_manually(combination):
+    """
+    Hard-delete one SubjectCombination after writing a DELETE audit snapshot.
+
+    Args:
+        combination: SubjectCombination instance resolved by the detail API.
+
+    Returns:
+        API response payload confirming the deletion.
+    """
+
+    with transaction.atomic():
+        combination.action = ActionsChoices.DELETE
+        combination.field_changed = 'deleted'
+        _log_subject_combination(combination, ActionsChoices.DELETE, combination.field_changed)
+        combination.delete()
+    return {'success': True}
 
 
 def serialize_combination(combination):

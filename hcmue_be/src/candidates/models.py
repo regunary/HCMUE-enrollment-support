@@ -24,7 +24,7 @@ class Candidate(AuditModel):
 
 
 class CandidateLog(models.Model):
-    candidate        = models.ForeignKey(Candidate, on_delete=models.CASCADE, db_column='candidate_id')
+    candidate        = models.ForeignKey(Candidate, on_delete=models.SET_NULL, null=True, blank=True, db_column='candidate_id')
     cccd             = models.CharField(max_length=12)
     ticket_number    = models.CharField(max_length=20, null=True, blank=True)
     graduation_year  = models.PositiveSmallIntegerField(null=True, blank=True)
@@ -109,7 +109,7 @@ class RegionLog(models.Model):
         create_date: Timestamp when the log row was written.
     """
 
-    region        = models.ForeignKey(Region, on_delete=models.CASCADE, db_column='region_code')
+    region        = models.ForeignKey(Region, on_delete=models.SET_NULL, null=True, blank=True, db_column='region_code')
     code          = models.CharField(max_length=20)
     bonus_score   = models.DecimalField(max_digits=4, decimal_places=2)
     is_deleted    = models.BooleanField()
@@ -123,7 +123,7 @@ class RegionLog(models.Model):
 
 
 class RegionPriorityLog(models.Model):
-    region_priority = models.ForeignKey(RegionPriority, on_delete=models.CASCADE, db_column='region_priority_id')
+    region_priority = models.ForeignKey(RegionPriority, on_delete=models.SET_NULL, null=True, blank=True, db_column='region_priority_id')
     candidate_id    = models.UUIDField()
     region_code     = models.CharField(max_length=20)
     special_code    = models.CharField(max_length=10, null=True, blank=True)
@@ -147,7 +147,7 @@ class ScoreBoard(AuditModel):
 
 
 class ScoreBoardLog(models.Model):
-    score_board   = models.ForeignKey(ScoreBoard, on_delete=models.CASCADE, db_column='score_board_id')
+    score_board   = models.ForeignKey(ScoreBoard, on_delete=models.SET_NULL, null=True, blank=True, db_column='score_board_id')
     candidate_id  = models.UUIDField()
     score_type    = models.CharField(max_length=10, choices=ScoreTypeChoices.choices)
     action        = models.CharField(max_length=10, choices=ActionsChoices.choices)
@@ -170,7 +170,7 @@ class SubjectScore(AuditModel):
 
 
 class SubjectScoreLog(models.Model):
-    subject_score  = models.ForeignKey(SubjectScore, on_delete=models.CASCADE, db_column='subject_score_id')
+    subject_score  = models.ForeignKey(SubjectScore, on_delete=models.SET_NULL, null=True, blank=True, db_column='subject_score_id')
     score_board_id = models.IntegerField()
     subject_id     = models.CharField(max_length=10)
     score          = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

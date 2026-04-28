@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
+from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
 from src.candidates.models import Candidate, Region
@@ -13,6 +14,8 @@ from src.candidates.services import (
     THPT_SCORE_COLUMNS,
     create_candidate_manually,
     create_region_manually,
+    delete_candidate_manually,
+    delete_region_manually,
     import_candidate_basic_info,
     import_candidate_scores,
     import_regions,
@@ -112,6 +115,53 @@ class RegionListCreateView(GenericAPIView):
         if not serializer.is_valid():
             return validation_error_response(serializer.errors)
         return Response(create_region_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
+
+
+class RegionDetailView(GenericAPIView):
+    """
+    Delete one region master-data row.
+
+    Request:
+        DELETE has no body and uses the region code from URL.
+
+    Response:
+        success=true when the row is removed from the main table after logging.
+    """
+
+    permission_classes = [IsAdmin]
+
+    def get_object(self, pk):
+        """
+        Resolve a non-deleted region by code.
+
+        Args:
+            pk: Region code from the URL.
+
+        Returns:
+            Region instance.
+        """
+
+        return get_object_or_404(Region.objects.filter(is_deleted=False), pk=pk)
+
+    def delete(self, request, pk):
+        """
+        Hard-delete one region after writing its DELETE log.
+
+        Args:
+            request: DRF request.
+            pk: Region code from the URL.
+
+        Returns:
+            DRF Response confirming deletion, or DELETE_PROTECTED if referenced.
+        """
+
+        try:
+            return Response(delete_region_manually(self.get_object(pk)))
+        except ProtectedError:
+            return Response(
+                {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
+                status=status.HTTP_409_CONFLICT,
+            )
 
 
 class CandidateListCreateView(GenericAPIView):
@@ -218,6 +268,20 @@ class CandidateDetailView(GenericAPIView):
         if not serializer.is_valid():
             return validation_error_response(serializer.errors)
         return Response(update_candidate_manually(candidate, serializer.validated_data))
+
+    def delete(self, request, pk):
+        """
+        Hard-delete one candidate after writing its DELETE log.
+
+        Args:
+            request: DRF request.
+            pk: Candidate UUID from the URL.
+
+        Returns:
+            DRF Response confirming deletion.
+        """
+
+        return Response(delete_candidate_manually(self.get_object(pk)))
 
 
 class RegionImportView(GenericAPIView):

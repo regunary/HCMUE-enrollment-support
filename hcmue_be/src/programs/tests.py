@@ -8,8 +8,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.choices import RoleChoices, ScoreTypeChoices
-from src.programs.models import CombinationSubject, Subject, SubjectCombination
+from core.choices import ActionsChoices, RoleChoices, ScoreTypeChoices
+from src.programs.models import CombinationSubject, Subject, SubjectCombination, SubjectCombinationLog, SubjectLog
 
 
 def make_xlsx(headers, rows):
@@ -126,6 +126,16 @@ class SubjectApiTests(TestCase):
         self.assertEqual(response.data['data']['name'], 'Toán')
         self.assertEqual(Subject.objects.get(id='TO').name, 'Toán')
 
+    def test_delete_subject_hard_deletes_record_and_keeps_delete_log(self):
+        Subject.objects.create(id='TO', name='Toán')
+
+        response = self.client.delete('/api/v1/subjects/TO/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Subject.objects.filter(id='TO').exists())
+        log = SubjectLog.objects.get(name='Toán', action=ActionsChoices.DELETE)
+        self.assertIsNone(log.subject_id)
+
 
 class CombinationApiTests(TestCase):
     def setUp(self):
@@ -231,3 +241,13 @@ class CombinationApiTests(TestCase):
             list(CombinationSubject.objects.filter(subject_combination=combination).order_by('position').values_list('subject_id', flat=True)),
             ['VA', 'TO'],
         )
+
+    def test_delete_combination_hard_deletes_record_and_keeps_delete_log(self):
+        combination = SubjectCombination.objects.create(id='A00', name='Toán Lí Hóa')
+
+        response = self.client.delete('/api/v1/combinations/A00/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(SubjectCombination.objects.filter(id=combination.id).exists())
+        log = SubjectCombinationLog.objects.get(name='Toán Lí Hóa', action=ActionsChoices.DELETE)
+        self.assertIsNone(log.subject_combination_id)
