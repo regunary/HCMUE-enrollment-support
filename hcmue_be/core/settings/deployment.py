@@ -1,7 +1,9 @@
 from .base import *
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+# Normalize empty string: Compose ${VAR:-default} does not substitute when VAR is set-but-empty in .env.
+_secret = (os.getenv('SECRET_KEY') or '').strip()
+SECRET_KEY = _secret if _secret else 'change-me-before-deploy'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG') == 'True'

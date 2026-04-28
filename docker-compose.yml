@@ -26,6 +26,7 @@ services:
     container_name: hcmue-backend
     restart: unless-stopped
     environment:
+      # Do not use SECRET_KEY= with no value in .env — it overrides the default with empty.
       SECRET_KEY: ${SECRET_KEY:-change-me-before-deploy}
       DEBUG: ${DEBUG:-False}
       DB_NAME: ${POSTGRES_DB:-hcmue_enrollment_support}
