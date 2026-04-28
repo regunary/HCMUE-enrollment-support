@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import logoImage from '../../assets/logo-hcmue.png'
 import { Badge, Button, FormField, Input } from '../../components'
 import { loginSchema } from '../../schemas/auth.schema'
@@ -13,8 +13,6 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -27,7 +25,8 @@ export function LoginPage() {
     setError('')
     try {
       await login(parsed.data.username, parsed.data.password)
-      navigate(from ?? '/', { replace: true })
+      // Always reset entry point after a fresh login, avoid returning to stale page from prior role.
+      navigate('/', { replace: true })
     } catch (apiError) {
       const message = apiError instanceof Error ? apiError.message : 'Đăng nhập thất bại.'
       setError(message)
