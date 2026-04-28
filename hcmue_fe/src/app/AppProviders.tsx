@@ -3,12 +3,15 @@
  */
 import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '../features/auth/AuthContext'
+import { ToastProvider } from '../features/feedback/ToastContext'
 import { appRouter } from './routes'
 
 export function AppProviders() {
   return (
-    <AuthProvider>
-      <RouterProvider router={appRouter} />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <RouterProvider router={appRouter} />
+      </AuthProvider>
+    </ToastProvider>
   )
 }
