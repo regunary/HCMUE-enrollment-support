@@ -13,6 +13,8 @@ export const enrollmentEndpoints = {
   candidateScoresNangKhieuImport: '/api/v1/candidates/scores/nang-khieu/import/',
   candidateRegions: '/api/v1/candidates/regions/',
   candidateRegionsImport: '/api/v1/candidates/regions/import/',
+  candidatePriorityObjects: '/api/v1/candidates/priority-objects/',
+  candidatePriorityObjectsImport: '/api/v1/candidates/priority-objects/import/',
   combinations: '/api/v1/combinations/',
   combinationsImport: '/api/v1/combinations/import/',
   subjects: '/api/v1/subjects/',

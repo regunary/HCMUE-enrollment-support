@@ -15,8 +15,8 @@ import type { Candidate } from '../../types/domain'
 const CANDIDATE_FIELDS: ImportFieldDef[] = [
   { key: 'idNumber', label: 'Số CCCD', kind: 'text' },
   { key: 'priorityRegion', label: 'Khu vực ưu tiên', kind: 'text' },
-  { key: 'priorityBonus', label: 'Điểm ưu tiên KV', kind: 'number' },
   { key: 'priorityGroup', label: 'Đối tượng ưu tiên', kind: 'text' },
+  { key: 'priorityBonus', label: 'Tổng điểm ưu tiên', kind: 'number' },
   { key: 'graduationYear', label: 'Năm tốt nghiệp', kind: 'number' },
   { key: 'academicLevel', label: 'Học lực lớp 12', kind: 'text' },
   { key: 'graduationScore', label: 'Điểm tốt nghiệp', kind: 'number' },
@@ -26,6 +26,7 @@ const CANDIDATE_FIELDS: ImportFieldDef[] = [
 export function CandidatesPage() {
   const { showToast } = useToast()
   const [regions, setRegions] = useState<Array<{ code: string; bonus_score: number }>>([])
+  const [priorityObjects, setPriorityObjects] = useState<Array<{ code: string; bonus_score: number }>>([])
   const [thptFile, setThptFile] = useState<File | null>(null)
   const [hocBaFile, setHocBaFile] = useState<File | null>(null)
   const [nangLucFile, setNangLucFile] = useState<File | null>(null)
@@ -33,15 +34,22 @@ export function CandidatesPage() {
   const [candidateListVersion, setCandidateListVersion] = useState(0)
 
   useEffect(() => {
-    if (!enrollmentApi.getCandidateRegions) {
-      return
+    if (enrollmentApi.getCandidateRegions) {
+      void enrollmentApi
+        .getCandidateRegions()
+        .then((data) => setRegions(data.map((item) => ({ code: item.code, bonus_score: item.bonus_score }))))
+        .catch(() => {
+          // keep candidate form usable even when regions endpoint fails
+        })
     }
-    void enrollmentApi
-      .getCandidateRegions()
-      .then((data) => setRegions(data.map((item) => ({ code: item.code, bonus_score: item.bonus_score }))))
-      .catch(() => {
-        // keep candidate form usable even when regions endpoint fails
-      })
+    if (enrollmentApi.getCandidatePriorityObjects) {
+      void enrollmentApi
+        .getCandidatePriorityObjects()
+        .then((data) => setPriorityObjects(data.map((item) => ({ code: item.code, bonus_score: item.bonus_score }))))
+        .catch(() => {
+          // keep candidate form usable even when priority objects endpoint fails
+        })
+    }
   }, [])
 
   const candidateSelectOptions = useMemo(() => {
@@ -50,20 +58,26 @@ export function CandidatesPage() {
       { value: 'Giỏi', label: 'Giỏi' },
       { value: 'Khá', label: 'Khá' },
     ]
+    const priorityGroupOptions = [
+      { value: '', label: 'Chọn đối tượng' },
+      ...priorityObjects.map((item) => ({ value: item.code, label: item.code })),
+    ]
     return {
       priorityRegion: regionOptions,
+      priorityGroup: priorityGroupOptions,
       academicLevel: academicOptions,
     }
-  }, [regions])
+  }, [priorityObjects, regions])
 
   const onCandidateDraftChange = (nextDraft: Record<string, string>, changedKey: string) => {
-    if (changedKey !== 'priorityRegion') {
+    if (changedKey !== 'priorityRegion' && changedKey !== 'priorityGroup') {
       return nextDraft
     }
-    const selected = regions.find((item) => item.code === nextDraft.priorityRegion)
+    const selectedRegion = regions.find((item) => item.code === nextDraft.priorityRegion)
+    const selectedPriorityObject = priorityObjects.find((item) => item.code === nextDraft.priorityGroup)
     return {
       ...nextDraft,
-      priorityBonus: selected ? String(selected.bonus_score) : '',
+      priorityBonus: String((selectedRegion?.bonus_score ?? 0) + (selectedPriorityObject?.bonus_score ?? 0)),
     }
   }
 
@@ -106,7 +120,11 @@ export function CandidatesPage() {
     selectedRowIndex: number | null,
     rows: RowModel[],
   ): Promise<RowModel[]> => {
-    const candidate = payload as Candidate
+    const candidate = {
+      ...(payload as Candidate),
+      // Table may render "-" for empty priority group; API expects null/empty when no priority object.
+      priorityGroup: payload.priorityGroup === '-' ? '' : (payload.priorityGroup as string),
+    } as Candidate
     if (selectedRowIndex !== null && typeof rows[selectedRowIndex]?._pk === 'string' && enrollmentApi.updateCandidate) {
       const updated = await enrollmentApi.updateCandidate(rows[selectedRowIndex]._pk as string, candidate)
       const pk = rows[selectedRowIndex]._pk
@@ -269,7 +287,13 @@ export function CandidatesPage() {
         fields={CANDIDATE_FIELDS}
         hiddenTableFieldKeys={['scoreJson']}
         rowSchema={candidateSchema}
-        getRows={enrollmentApi.getCandidates}
+        getRows={async () => {
+          const list = await enrollmentApi.getCandidates()
+          return list.map((item) => ({
+            ...item,
+            priorityGroup: item.priorityGroup || '-',
+          }))
+        }}
         importFile={enrollmentApi.importCandidates}
         saveRow={saveCandidate}
         selectOptionsByField={candidateSelectOptions}

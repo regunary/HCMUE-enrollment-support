@@ -8,6 +8,8 @@ const pathTitleMap: Record<string, string> = {
   '/dashboard/council': 'Tổng quan Hội đồng',
   '/dashboard/faculty': 'Tổng quan Khoa',
   '/imports/candidates': 'Nhập thí sinh',
+  '/imports/candidate-regions': 'Khu vực ưu tiên',
+  '/imports/candidate-priority-objects': 'Đối tượng ưu tiên',
   '/imports/combinations': 'Nhập tổ hợp',
   '/imports/majors': 'Nhập ngành',
   '/imports/wishes': 'Nhập nguyện vọng',

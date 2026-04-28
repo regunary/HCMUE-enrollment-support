@@ -7,7 +7,8 @@ export const candidateSchema = z.object({
   idNumber: z.string().min(8, 'CCCD không hợp lệ.'),
   priorityRegion: z.string().min(1, 'Khu vực ưu tiên không được để trống.'),
   priorityBonus: z.number().min(0, 'Điểm ưu tiên khu vực không hợp lệ.').default(0),
-  priorityGroup: z.string().min(1, 'Đối tượng ưu tiên không được để trống.'),
+  // Backend accepts empty special_code; keep FE contract aligned.
+  priorityGroup: z.string().default(''),
   graduationYear: z.number().int().min(1990, 'Năm tốt nghiệp không hợp lệ.'),
   academicLevel: z.string().min(1, 'Học lực lớp 12 không được để trống.').default('1'),
   graduationScore: z.number().min(0, 'Điểm tốt nghiệp không hợp lệ.').max(10, 'Điểm tốt nghiệp không hợp lệ.').default(0),

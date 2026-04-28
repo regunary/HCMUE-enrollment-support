@@ -43,6 +43,12 @@ type CandidateRegionApiRow = {
   bonus_score: number
 }
 
+type CandidatePriorityObjectApiRow = {
+  id?: string
+  code: string
+  bonus_score: number
+}
+
 function unwrapDataPayload<T>(raw: unknown): T {
   if (raw && typeof raw === 'object' && 'data' in (raw as Record<string, unknown>)) {
     return (raw as { data: T }).data
@@ -185,6 +191,12 @@ async function fetchCandidateRegionsFromBackend(): Promise<CandidateRegionApiRow
   return rows
 }
 
+async function fetchCandidatePriorityObjectsFromBackend(): Promise<CandidatePriorityObjectApiRow[]> {
+  const raw = await apiGetJson<unknown>(enrollmentEndpoints.candidatePriorityObjects)
+  const rows = unwrapListPayload(raw) as CandidatePriorityObjectApiRow[]
+  return rows
+}
+
 /** FormData được api/http.ts sao chép bytes (arrayBuffer) trước khi fetch — import lại cùng file vẫn ổn. */
 async function uploadImportFile(path: string, file: File): Promise<ImportSummary> {
   const form = new FormData()
@@ -229,6 +241,13 @@ export const liveEnrollmentApi = {
     ),
   importCandidateRegions: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.candidateRegionsImport, file),
+  getCandidatePriorityObjects: (): Promise<CandidatePriorityObjectApiRow[]> => fetchCandidatePriorityObjectsFromBackend(),
+  createCandidatePriorityObject: (payload: { code: string; bonus_score: number }): Promise<CandidatePriorityObjectApiRow> =>
+    apiPostJson<unknown>(enrollmentEndpoints.candidatePriorityObjects, payload).then((raw) =>
+      unwrapDataPayload<CandidatePriorityObjectApiRow>(raw),
+    ),
+  importCandidatePriorityObjects: (file: File): Promise<ImportSummary> =>
+    uploadImportFile(enrollmentEndpoints.candidatePriorityObjectsImport, file),
   importCombinations: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.combinationsImport, file),
   importSubjects: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.subjectsImport, file),

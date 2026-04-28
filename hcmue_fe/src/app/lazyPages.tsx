@@ -16,6 +16,9 @@ export const CandidatesPage = lazy(() =>
 export const CandidateRegionsPage = lazy(() =>
   import('../features/candidates/CandidateRegionsPage').then((m) => ({ default: m.CandidateRegionsPage })),
 )
+export const CandidatePriorityObjectsPage = lazy(() =>
+  import('../features/candidates/CandidatePriorityObjectsPage').then((m) => ({ default: m.CandidatePriorityObjectsPage })),
+)
 export const CombinationsPage = lazy(() =>
   import('../features/combinations/CombinationsPage').then((m) => ({ default: m.CombinationsPage })),
 )

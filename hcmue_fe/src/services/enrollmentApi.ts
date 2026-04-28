@@ -79,6 +79,15 @@ export type EnrollmentDataApi = {
     skipped: number
     errors: Array<Record<string, unknown>>
   }>
+  getCandidatePriorityObjects?: () => Promise<Array<{ id?: string; code: string; bonus_score: number }>>
+  createCandidatePriorityObject?: (payload: { code: string; bonus_score: number }) => Promise<{ id?: string; code: string; bonus_score: number }>
+  importCandidatePriorityObjects?: (file: File) => Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors: Array<Record<string, unknown>>
+  }>
 }
 
 const mixedApi: EnrollmentDataApi = {
@@ -107,6 +116,9 @@ const mixedApi: EnrollmentDataApi = {
   getCandidateRegions: () => liveEnrollmentApi.getCandidateRegions(),
   createCandidateRegion: (payload) => liveEnrollmentApi.createCandidateRegion(payload),
   importCandidateRegions: (file) => liveEnrollmentApi.importCandidateRegions(file),
+  getCandidatePriorityObjects: () => liveEnrollmentApi.getCandidatePriorityObjects(),
+  createCandidatePriorityObject: (payload) => liveEnrollmentApi.createCandidatePriorityObject(payload),
+  importCandidatePriorityObjects: (file) => liveEnrollmentApi.importCandidatePriorityObjects(file),
 }
 
 export const enrollmentApi: EnrollmentDataApi = appEnv.useMock ? mockApi : mixedApi

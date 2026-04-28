@@ -11,6 +11,7 @@ import {
   AdminDashboardPage,
   AdmissionPage,
   CandidatesPage,
+  CandidatePriorityObjectsPage,
   CandidateRegionsPage,
   CombinationsPage,
   CouncilDashboardPage,
@@ -79,6 +80,10 @@ export const appRouter = createBrowserRouter([
       {
         path: 'imports/candidate-regions',
         element: withRoles(['admin'], <CandidateRegionsPage />),
+      },
+      {
+        path: 'imports/candidate-priority-objects',
+        element: withRoles(['admin'], <CandidatePriorityObjectsPage />),
       },
       {
         path: 'imports/combinations',
