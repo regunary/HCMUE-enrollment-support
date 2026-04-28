@@ -4,8 +4,11 @@
 export type Candidate = {
   idNumber: string
   priorityRegion: string
+  priorityBonus: number
   priorityGroup: string
   graduationYear: number
+  academicLevel: string
+  graduationScore: number
   scoreJson: string
 }
 
@@ -13,6 +16,11 @@ export type Combination = {
   code: string
   subjects: string
   weights: string
+}
+
+export type Subject = {
+  id: string
+  name: string
 }
 
 export type Major = {

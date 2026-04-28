@@ -1,6 +1,7 @@
 /**
  * English note: Scoring and admission helper functions for enrollment workflows.
  */
+import { thptScoreForCombinationSubject } from './scoreColumnKeys'
 import type { Candidate, Combination, Cutoff, Major, Wish } from '../types/domain'
 
 type ScoreObject = Record<string, number>
@@ -18,7 +19,7 @@ export function calcCombinationScore(candidate: Candidate, combination: Combinat
   const weights = combination.weights.split(',').map((item) => Number(item.trim()))
   const scoreMap = parseScoreJson(candidate.scoreJson)
   const numerator = subjects.reduce((sum, subject, index) => {
-    const value = scoreMap[subject] ?? 0
+    const value = thptScoreForCombinationSubject(scoreMap, subject)
     const weight = weights[index] ?? 1
     return sum + value * weight
   }, 0)
@@ -33,7 +34,10 @@ export function enumerateCombinationsFor(candidate: Candidate, combinations: Com
     combination.subjects
       .split(',')
       .map((item) => item.trim())
-      .every((subject) => availableSubjects.has(subject)),
+      .every((subject) => {
+        const s = subject.trim().toUpperCase()
+        return availableSubjects.has(s) || availableSubjects.has(`${s}_THPT`)
+      }),
   )
 }
 
