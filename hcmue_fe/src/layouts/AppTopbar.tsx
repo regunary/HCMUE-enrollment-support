@@ -1,6 +1,6 @@
 import { ChevronDown, Moon, Sun } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../features/auth/useAuth'
@@ -10,6 +10,7 @@ import { getPageTitle } from './breadcrumbs'
 export function AppTopbar() {
   const { session, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
@@ -100,7 +101,9 @@ export function AppTopbar() {
                 role="menuitem"
                 onClick={() => {
                   closeUserMenu()
-                  void logout()
+                  void logout().finally(() => {
+                    navigate('/login', { replace: true })
+                  })
                 }}
               >
                 Đăng xuất

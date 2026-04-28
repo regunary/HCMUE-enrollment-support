@@ -30,6 +30,8 @@ import {
 } from './lazyPages'
 
 const suspense = (node: ReactNode) => <Suspense fallback={<PageLoading />}>{node}</Suspense>
+const withRoles = (allowedRoles: ('admin' | 'council' | 'faculty')[], node: ReactNode) =>
+  suspense(<RoleGuard allowedRoles={allowedRoles}>{node}</RoleGuard>)
 
 export const appRouter = createBrowserRouter([
   {
@@ -72,55 +74,55 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: 'imports/candidates',
-        element: suspense(<CandidatesPage />),
+        element: withRoles(['admin'], <CandidatesPage />),
       },
       {
         path: 'imports/candidate-regions',
-        element: suspense(<CandidateRegionsPage />),
+        element: withRoles(['admin'], <CandidateRegionsPage />),
       },
       {
         path: 'imports/combinations',
-        element: suspense(<CombinationsPage />),
+        element: withRoles(['admin'], <CombinationsPage />),
       },
       {
         path: 'imports/subjects',
-        element: suspense(<SubjectsPage />),
+        element: withRoles(['admin'], <SubjectsPage />),
       },
       {
         path: 'imports/majors',
-        element: suspense(<MajorsPage />),
+        element: withRoles(['admin'], <MajorsPage />),
       },
       {
         path: 'imports/wishes',
-        element: suspense(<WishesPage />),
+        element: withRoles(['admin'], <WishesPage />),
       },
       {
         path: 'imports/exclusions',
-        element: suspense(<ExclusionsPage />),
+        element: withRoles(['admin'], <ExclusionsPage />),
       },
       {
         path: 'imports/criteria',
-        element: suspense(<CriteriaPage />),
+        element: withRoles(['admin'], <CriteriaPage />),
       },
       {
         path: 'analytics/scoring',
-        element: suspense(<ScoringPage />),
+        element: withRoles(['admin', 'council'], <ScoringPage />),
       },
       {
         path: 'analytics/distribution',
-        element: suspense(<DistributionPage />),
+        element: withRoles(['admin', 'council', 'faculty'], <DistributionPage />),
       },
       {
         path: 'analytics/percentile',
-        element: suspense(<PercentilePage />),
+        element: withRoles(['admin', 'council'], <PercentilePage />),
       },
       {
         path: 'admission/cutoff',
-        element: suspense(<CutoffPage />),
+        element: withRoles(['admin', 'council', 'faculty'], <CutoffPage />),
       },
       {
         path: 'admission/results',
-        element: suspense(<AdmissionPage />),
+        element: withRoles(['admin', 'council'], <AdmissionPage />),
       },
     ],
   },
