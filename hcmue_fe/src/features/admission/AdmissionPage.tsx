@@ -38,6 +38,9 @@ export function AdmissionPage() {
       <p className="text-sm text-muted leading-relaxed">
         Thí sinh trúng tuyển nguyện vọng cao nhất đạt điểm chuẩn sẽ được xuất ra Excel.
       </p>
+      <p className="text-sm leading-relaxed mt-2 mb-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
+        Đang dùng dữ liệu giả vì chưa có API.
+      </p>
       <div className="flex flex-wrap items-center gap-3 my-4">
         <Button
           variant="secondary"

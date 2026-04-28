@@ -13,8 +13,14 @@ export const LoginPage = lazy(() => import('../features/auth/LoginPage').then((m
 export const CandidatesPage = lazy(() =>
   import('../features/candidates/CandidatesPage').then((m) => ({ default: m.CandidatesPage })),
 )
+export const CandidateRegionsPage = lazy(() =>
+  import('../features/candidates/CandidateRegionsPage').then((m) => ({ default: m.CandidateRegionsPage })),
+)
 export const CombinationsPage = lazy(() =>
   import('../features/combinations/CombinationsPage').then((m) => ({ default: m.CombinationsPage })),
+)
+export const SubjectsPage = lazy(() =>
+  import('../features/subjects/SubjectsPage').then((m) => ({ default: m.SubjectsPage })),
 )
 export const CriteriaPage = lazy(() =>
   import('../features/criteria/CriteriaPage').then((m) => ({ default: m.CriteriaPage })),

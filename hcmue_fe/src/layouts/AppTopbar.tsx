@@ -100,7 +100,7 @@ export function AppTopbar() {
                 role="menuitem"
                 onClick={() => {
                   closeUserMenu()
-                  logout()
+                  void logout()
                 }}
               >
                 Đăng xuất

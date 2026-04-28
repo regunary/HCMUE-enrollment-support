@@ -20,6 +20,7 @@ export function MajorsPage() {
       fields={MAJOR_FIELDS}
       rowSchema={majorSchema}
       getRows={enrollmentApi.getMajors}
+      mockNotice="Đang dùng dữ liệu giả vì chưa có API."
       sampleRows={[{ code: '7480201', name: 'Công nghệ thông tin', combinations: 'A00,A01,D01' }]}
     />
   )

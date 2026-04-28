@@ -11,6 +11,7 @@ import {
   AdminDashboardPage,
   AdmissionPage,
   CandidatesPage,
+  CandidateRegionsPage,
   CombinationsPage,
   CouncilDashboardPage,
   CriteriaPage,
@@ -24,6 +25,7 @@ import {
   NotFoundPage,
   PercentilePage,
   ScoringPage,
+  SubjectsPage,
   WishesPage,
 } from './lazyPages'
 
@@ -73,8 +75,16 @@ export const appRouter = createBrowserRouter([
         element: suspense(<CandidatesPage />),
       },
       {
+        path: 'imports/candidate-regions',
+        element: suspense(<CandidateRegionsPage />),
+      },
+      {
         path: 'imports/combinations',
         element: suspense(<CombinationsPage />),
+      },
+      {
+        path: 'imports/subjects',
+        element: suspense(<SubjectsPage />),
       },
       {
         path: 'imports/majors',

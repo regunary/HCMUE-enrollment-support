@@ -9,6 +9,9 @@ export function CutoffPage() {
       <p className="text-sm text-muted leading-relaxed">
         Nhập điểm chuẩn theo ngành bằng file Excel hoặc cập nhật tay.
       </p>
+      <p className="text-sm leading-relaxed mt-2 mb-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
+        Đang dùng dữ liệu giả vì chưa có API.
+      </p>
       <div className="flex flex-wrap items-center gap-3 my-4">
         <Uploader onFileSelected={() => undefined} />
         <Button

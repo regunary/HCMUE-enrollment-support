@@ -20,6 +20,7 @@ export function WishesPage() {
       fields={WISH_FIELDS}
       rowSchema={wishSchema}
       getRows={enrollmentApi.getWishes}
+      mockNotice="Đang dùng dữ liệu giả vì chưa có API."
       sampleRows={[{ idNumber: '079300000000', majorCode: '7480201', order: 1 }]}
     />
   )

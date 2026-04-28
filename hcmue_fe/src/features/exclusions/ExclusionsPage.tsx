@@ -19,6 +19,7 @@ export function ExclusionsPage() {
       fields={EXCLUSION_FIELDS}
       rowSchema={exclusionSchema}
       getRows={enrollmentApi.getExclusions}
+      mockNotice="Đang dùng dữ liệu giả vì chưa có API."
       sampleRows={[{ idNumber: '079300000000', reason: 'Đã trúng tuyển sớm' }]}
     />
   )

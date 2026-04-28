@@ -31,7 +31,10 @@ export type NavSection = {
 }
 
 const importItems: NavItem[] = [
+ 
+  { to: '/imports/candidate-regions', label: 'Khu vực ưu tiên', icon: UserCog },
   { to: '/imports/candidates', label: 'Nhập thí sinh', icon: Users },
+  { to: '/imports/subjects', label: 'Nhập môn học', icon: BookCheck },
   { to: '/imports/combinations', label: 'Nhập tổ hợp', icon: SlidersHorizontal },
   { to: '/imports/majors', label: 'Nhập ngành', icon: BookCheck },
   { to: '/imports/wishes', label: 'Nhập nguyện vọng', icon: ClipboardList },

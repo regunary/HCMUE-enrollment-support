@@ -19,6 +19,7 @@ export function CriteriaPage() {
       fields={CRITERIA_FIELDS}
       rowSchema={criteriaSchema}
       getRows={enrollmentApi.getCriteria}
+      mockNotice="Đang dùng dữ liệu giả vì chưa có API."
       sampleRows={[{ combinationCode: 'A00', rule: 'toan >= 6 AND ly >= 6 AND hoa >= 6' }]}
     />
   )
