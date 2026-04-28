@@ -2,35 +2,38 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import logoImage from '../../assets/logo-hcmue.png'
-import { Badge, Button, FormField, Select } from '../../components'
+import { Badge, Button, FormField, Input } from '../../components'
 import { loginSchema } from '../../schemas/auth.schema'
 import { useAuth } from './useAuth'
-import type { UserRole } from '../../types/role'
-
-const roleOptions: Array<{ value: UserRole; label: string }> = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'council', label: 'Hội đồng tuyển sinh' },
-  { value: 'faculty', label: 'Khoa' },
-]
 
 export function LoginPage() {
-  const [role, setRole] = useState<UserRole>('admin')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string>('')
+  const [submitting, setSubmitting] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const parsed = loginSchema.safeParse({ role })
+    const parsed = loginSchema.safeParse({ username, password })
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.')
       return
     }
+    setSubmitting(true)
     setError('')
-    login(parsed.data.role)
-    navigate(from ?? `/dashboard/${parsed.data.role}`, { replace: true })
+    try {
+      await login(parsed.data.username, parsed.data.password)
+      navigate(from ?? '/', { replace: true })
+    } catch (apiError) {
+      const message = apiError instanceof Error ? apiError.message : 'Đăng nhập thất bại.'
+      setError(message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -44,22 +47,27 @@ export function LoginPage() {
         </div>
       </div>
 
-      <Badge>Đăng nhập mô phỏng</Badge>
-      <h2 className="text-lg font-semibold mt-0 mb-1">Chọn vai trò để vào hệ thống</h2>
+      <Badge>Đăng nhập hệ thống</Badge>
+      <h2 className="text-lg font-semibold mt-0 mb-1">Đăng nhập vào hệ thống</h2>
       <p className="text-sm text-muted mb-4">
-        Bước đăng nhập giả lập trong giai đoạn phát triển frontend.
+        Đăng nhập bằng tài khoản backend để truy cập theo vai trò.
       </p>
 
       <form className="grid gap-3" onSubmit={handleSubmit}>
-        <FormField label="Vai trò">
-          <Select
-            value={role}
-            onChange={(v) => setRole(v as UserRole)}
-            options={roleOptions}
+        <FormField label="Tài khoản">
+          <Input value={username} onChange={setUsername} placeholder="Nhập username" />
+        </FormField>
+        <FormField label="Mật khẩu">
+          <input
+            className="w-full border border-border rounded-md px-3 py-2 bg-surface"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Nhập mật khẩu"
           />
         </FormField>
         {error ? <p className="text-accent text-sm m-0">{error}</p> : null}
-        <Button type="submit">Vào hệ thống</Button>
+        <Button type="submit">{submitting ? 'Đang đăng nhập...' : 'Vào hệ thống'}</Button>
       </form>
     </section>
   )
