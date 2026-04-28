@@ -53,14 +53,13 @@ services:
     volumes:
       - frontend_dist:/dist
 
-  # Nginx is independent infra under init/nginx and proxies API traffic to backend.
   nginx:
     build:
       context: ./init/nginx
     container_name: hcmue-nginx
     restart: unless-stopped
     ports:
-      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_PORT:-5032}:80"
     volumes:
       - frontend_dist:/usr/share/nginx/html:ro
       - backend_static:/var/www/backend_static:ro
