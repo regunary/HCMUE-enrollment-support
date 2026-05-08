@@ -19,6 +19,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: hcmue-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend image owns Django runtime only; nginx serves collected static files from a shared volume.
   backend:
     build:
@@ -34,6 +47,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       DB_HOST: postgres
       DB_PORT: 5432
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
     expose:
       - "8000"
     volumes:
@@ -41,6 +56,32 @@ services:
       - backend_media:/app/core/media
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./hcmue_be
+    container_name: hcmue-celery-worker
+    restart: unless-stopped
+    command: celery -A core worker --loglevel=INFO --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-before-deploy}
+      DEBUG: ${DEBUG:-False}
+      DB_NAME: ${POSTGRES_DB:-hcmue_enrollment_support}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+    volumes:
+      - backend_media:/app/core/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # Frontend builds Vite output once and copies dist into a volume consumed by nginx.
@@ -76,3 +117,4 @@ volumes:
   frontend_dist:
   backend_static:
   backend_media:
+  redis_data:
