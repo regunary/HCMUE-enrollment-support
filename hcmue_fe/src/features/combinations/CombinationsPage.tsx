@@ -20,11 +20,12 @@ export function CombinationsPage() {
   useEffect(() => {
     let active = true
     void enrollmentApi
-      .getSubjects()
-      .then((subjects) => {
+      .getSubjects({ page: 1, pageSize: 500 })
+      .then((result) => {
         if (!active) {
           return
         }
+        const subjects = Array.isArray(result) ? result : result.rows
         setSubjectOptions(subjects)
       })
       .catch(() => {

@@ -6,14 +6,28 @@ import { appEnv } from '../config/env'
 import type { Candidate, Combination, Criteria, Cutoff, Exclusion, Major, Subject, Wish } from '../types/domain'
 import { mockApi } from './mockApi'
 
+export type PageParams = {
+  page: number
+  pageSize: number
+}
+
+export type PaginatedRows<T> = {
+  rows: T[]
+  count: number
+  page: number
+  pageSize: number
+}
+
+export type RowListResult<T> = T[] | PaginatedRows<T>
+
 export type EnrollmentDataApi = {
-  getCandidates: () => Promise<Candidate[]>
-  getCombinations: () => Promise<Combination[]>
-  getSubjects: () => Promise<Subject[]>
-  getMajors: () => Promise<Major[]>
-  getWishes: () => Promise<Wish[]>
-  getExclusions: () => Promise<Exclusion[]>
-  getCriteria: () => Promise<Criteria[]>
+  getCandidates: (params?: PageParams) => Promise<RowListResult<Candidate>>
+  getCombinations: (params?: PageParams) => Promise<RowListResult<Combination>>
+  getSubjects: (params?: PageParams) => Promise<RowListResult<Subject>>
+  getMajors: (params?: PageParams) => Promise<RowListResult<Major>>
+  getWishes: (params?: PageParams) => Promise<RowListResult<Wish>>
+  getExclusions: (params?: PageParams) => Promise<RowListResult<Exclusion>>
+  getCriteria: (params?: PageParams) => Promise<RowListResult<Criteria>>
   getCutoffs: () => Promise<Cutoff[]>
   importCandidates?: (file: File) => Promise<{
     success: boolean
@@ -134,13 +148,13 @@ export type EnrollmentDataApi = {
 }
 
 const mixedApi: EnrollmentDataApi = {
-  getCandidates: () => liveEnrollmentApi.getCandidates(),
-  getCombinations: () => liveEnrollmentApi.getCombinations(),
-  getSubjects: () => liveEnrollmentApi.getSubjects(),
-  getMajors: () => liveEnrollmentApi.getMajors(),
-  getWishes: () => liveEnrollmentApi.getWishes(),
-  getExclusions: () => liveEnrollmentApi.getExclusions(),
-  getCriteria: () => liveEnrollmentApi.getCriteria(),
+  getCandidates: (params) => liveEnrollmentApi.getCandidates(params),
+  getCombinations: (params) => liveEnrollmentApi.getCombinations(params),
+  getSubjects: (params) => liveEnrollmentApi.getSubjects(params),
+  getMajors: (params) => liveEnrollmentApi.getMajors(params),
+  getWishes: (params) => liveEnrollmentApi.getWishes(params),
+  getExclusions: (params) => liveEnrollmentApi.getExclusions(params),
+  getCriteria: (params) => liveEnrollmentApi.getCriteria(params),
   getCutoffs: () => mockApi.getCutoffs(),
   importCandidates: (file) => liveEnrollmentApi.importCandidates(file),
   importCombinations: (file) => liveEnrollmentApi.importCombinations(file),

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, Button, Card, DataTable, Uploader } from '../../components'
 import { Trash2 } from 'lucide-react'
-import { useAsync } from '../../hooks/useAsync'
 import { writeSheet } from '../../utils/excel'
 import { useToast } from '../feedback/useToast'
 import { ImportEntityDrawer } from './ImportEntityDrawer'
@@ -30,35 +29,60 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [scoreRows, setScoreRows] = useState<ScoreDraftRow[]>([])
   const [combinationMap, setCombinationMap] = useState<CombinationDraftMap>({})
-  const { loading, error, execute } = useAsync(props.getRows)
   const { showToast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [importing, setImporting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set())
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(100)
+  const [totalRows, setTotalRows] = useState(0)
   const listRefreshTokenRef = useRef<number | undefined>(undefined)
   const showForm = draft !== null && (drawerMode === 'create-form' || drawerMode === 'edit-form')
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
+
+  const loadRows = async (nextPage = page, nextPageSize = pageSize) => {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await props.getRows({ page: nextPage, pageSize: nextPageSize })
+      if (Array.isArray(result)) {
+        setRows(result)
+        setTotalRows(result.length)
+      } else {
+        setRows(result.rows)
+        setTotalRows(result.count)
+        setPage(result.page)
+        setPageSize(result.pageSize)
+      }
+      setSelectedRowIndices(new Set())
+      return true
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Tải dữ liệu thất bại.'
+      setError(message)
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const reloadRows = async () => {
-    const result = await execute()
-    if (result) {
-      setRows(result)
-      setSelectedRowIndices(new Set())
-    }
+    await loadRows()
   }
 
   useEffect(() => {
     let active = true
-    void execute().then((result) => {
-      if (active && result) {
-        setRows(result)
-        setSelectedRowIndices(new Set())
+    void loadRows().then((ok) => {
+      if (!active || !ok) {
+        return
       }
     })
     return () => {
       active = false
     }
-  }, [execute])
+  }, [])
 
   useEffect(() => {
     if (error) {
@@ -79,13 +103,8 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
       return
     }
     listRefreshTokenRef.current = token
-    void execute().then((result) => {
-      if (result) {
-        setRows(result)
-        setSelectedRowIndices(new Set())
-      }
-    })
-  }, [props.listRefreshToken, execute])
+    void loadRows()
+  }, [props.listRefreshToken])
 
   const columns = useMemo(
     () =>
@@ -257,6 +276,18 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     await deleteSelectedRows(indices)
   }
 
+  const goToPage = async (nextPage: number) => {
+    const boundedPage = Math.min(Math.max(1, nextPage), totalPages)
+    setPage(boundedPage)
+    await loadRows(boundedPage, pageSize)
+  }
+
+  const changePageSize = async (nextPageSize: number) => {
+    setPage(1)
+    setPageSize(nextPageSize)
+    await loadRows(1, nextPageSize)
+  }
+
   const handleImport = async () => {
     if (!selectedFile || !props.importFile) {
       return
@@ -351,17 +382,43 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
       ) : null}
 
       {rows.length > 0 ? (
-        <DataTable
-          columns={columns}
-          rows={rows}
-          selectedRowIndex={selectedRowIndex}
-          selectedRowIndices={selectedRowIndices}
-          onToggleRowSelected={props.deleteRows ? toggleRowSelected : undefined}
-          onToggleAllRowsSelected={props.deleteRows ? toggleAllRowsSelected : undefined}
-          onRowClick={(row, rowIndex) => {
-            openEditDrawer(row, rowIndex)
-          }}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            rows={rows}
+            selectedRowIndex={selectedRowIndex}
+            selectedRowIndices={selectedRowIndices}
+            onToggleRowSelected={props.deleteRows ? toggleRowSelected : undefined}
+            onToggleAllRowsSelected={props.deleteRows ? toggleAllRowsSelected : undefined}
+            onRowClick={(row, rowIndex) => {
+              openEditDrawer(row, rowIndex)
+            }}
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
+            <span>
+              Trang {page}/{totalPages} · {totalRows.toLocaleString('vi-VN')} bản ghi
+            </span>
+            <div className="flex items-center gap-2">
+              <select
+                className="h-9 rounded-md border border-border bg-white px-2 text-sm text-primary"
+                value={pageSize}
+                onChange={(event) => void changePageSize(Number(event.target.value))}
+              >
+                {[50, 100, 200, 500].map((value) => (
+                  <option key={value} value={value}>
+                    {value}/trang
+                  </option>
+                ))}
+              </select>
+              <Button variant="secondary" type="button" disabled={page <= 1 || loading} onClick={() => void goToPage(page - 1)}>
+                Trước
+              </Button>
+              <Button variant="secondary" type="button" disabled={page >= totalPages || loading} onClick={() => void goToPage(page + 1)}>
+                Sau
+              </Button>
+            </div>
+          </div>
+        </>
       ) : null}
 
       <ImportEntityDrawer

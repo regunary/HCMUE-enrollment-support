@@ -4,7 +4,7 @@
 import { displayScoreKeyToParts, subjectScoreTypeToDisplayKey } from '../utils/scoreColumnKeys'
 import { apiDeleteJson, apiGetJson, apiPatchJson, apiPostFormData, apiPostJson } from './http'
 import { enrollmentEndpoints } from './endpoints'
-import { unwrapListPayload } from './response'
+import { unwrapListPayload, unwrapPaginatedPayload, type PageParams, type PaginatedResult } from './response'
 import { candidateSchema, combinationSchema, criteriaSchema, exclusionSchema, majorSchema, subjectSchema, wishSchema } from '../schemas/domain.schema'
 import type { Candidate, Combination, Criteria, Exclusion, Major, Subject, Wish } from '../types/domain'
 
@@ -171,6 +171,17 @@ function unwrapDataPayload<T>(raw: unknown): T {
   return raw as T
 }
 
+function withPageParams(path: string, params?: PageParams): string {
+  if (!params) {
+    return path
+  }
+  const query = new URLSearchParams({
+    page: String(params.page),
+    page_size: String(params.pageSize),
+  })
+  return `${path}?${query.toString()}`
+}
+
 function mapAcademicLevelToLabel(value: string | null | undefined): string {
   if (value === '1') {
     return 'Giỏi'
@@ -256,22 +267,25 @@ function mapCandidateFormToApiPayload(candidate: Candidate): Record<string, unkn
   }
 }
 
-async function fetchCandidatesFromBackend(): Promise<Array<Candidate & { _pk?: string }>> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.candidates)
-  const rows = unwrapListPayload(raw) as CandidateApiRow[]
-  return rows.map(mapCandidateApiToRow)
+async function fetchCandidatesFromBackend(params?: PageParams): Promise<PaginatedResult<Candidate & { _pk?: string }>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.candidates, params))
+  const page = unwrapPaginatedPayload<CandidateApiRow>(raw)
+  return { ...page, rows: page.rows.map(mapCandidateApiToRow) }
 }
 
-async function fetchCombinationsFromBackend(): Promise<Combination[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.combinations)
-  const rows = unwrapListPayload(raw) as CombinationApiRow[]
-  return rows.map((row) =>
-    combinationSchema.parse({
-      code: row.id,
-      subjects: (row.subjects ?? []).map((item) => item.subject_id).join(','),
-      weights: (row.subjects ?? []).map((item) => String(item.weight)).join(','),
-    }),
-  )
+async function fetchCombinationsFromBackend(params?: PageParams): Promise<PaginatedResult<Combination>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.combinations, params))
+  const page = unwrapPaginatedPayload<CombinationApiRow>(raw)
+  return {
+    ...page,
+    rows: page.rows.map((row) =>
+      combinationSchema.parse({
+        code: row.id,
+        subjects: (row.subjects ?? []).map((item) => item.subject_id).join(','),
+        weights: (row.subjects ?? []).map((item) => String(item.weight)).join(','),
+      }),
+    ),
+  }
 }
 
 function mapCombinationFormToApiPayload(combination: Combination): Record<string, unknown> {
@@ -294,28 +308,28 @@ function mapCombinationFormToApiPayload(combination: Combination): Record<string
   }
 }
 
-async function fetchSubjectsFromBackend(): Promise<Subject[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.subjects)
-  const rows = unwrapListPayload(raw) as SubjectApiRow[]
-  return rows.map((row) => subjectSchema.parse(row))
+async function fetchSubjectsFromBackend(params?: PageParams): Promise<PaginatedResult<Subject>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.subjects, params))
+  const page = unwrapPaginatedPayload<SubjectApiRow>(raw)
+  return { ...page, rows: page.rows.map((row) => subjectSchema.parse(row)) }
 }
 
-async function fetchMajorsFromBackend(): Promise<Major[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.majors)
-  const rows = unwrapListPayload(raw) as MajorApiRow[]
-  return rows.map(mapMajorApiToRow)
+async function fetchMajorsFromBackend(params?: PageParams): Promise<PaginatedResult<Major>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.majors, params))
+  const page = unwrapPaginatedPayload<MajorApiRow>(raw)
+  return { ...page, rows: page.rows.map(mapMajorApiToRow) }
 }
 
-async function fetchWishesFromBackend(): Promise<Wish[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.wishes)
-  const rows = unwrapListPayload(raw) as Array<WishApiRow & { id?: number }>
-  return rows.map(mapWishApiToRow)
+async function fetchWishesFromBackend(params?: PageParams): Promise<PaginatedResult<Wish>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.wishes, params))
+  const page = unwrapPaginatedPayload<WishApiRow & { id?: number }>(raw)
+  return { ...page, rows: page.rows.map(mapWishApiToRow) }
 }
 
-async function fetchExclusionsFromBackend(): Promise<Exclusion[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.exclusions)
-  const rows = unwrapListPayload(raw) as Array<ExclusionApiRow & { id?: number }>
-  return rows.map(mapExclusionApiToRow)
+async function fetchExclusionsFromBackend(params?: PageParams): Promise<PaginatedResult<Exclusion>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.exclusions, params))
+  const page = unwrapPaginatedPayload<ExclusionApiRow & { id?: number }>(raw)
+  return { ...page, rows: page.rows.map(mapExclusionApiToRow) }
 }
 
 function formatCriteriaRule(row: CriteriaApiRow): string {
@@ -329,19 +343,20 @@ function formatCriteriaRule(row: CriteriaApiRow): string {
   return parts.join('; ') || 'Điều kiện xét tuyển'
 }
 
-async function fetchCriteriaFromBackend(): Promise<Criteria[]> {
-  const raw = await apiGetJson<unknown>(enrollmentEndpoints.criteria)
-  const rows = unwrapListPayload(raw) as CriteriaApiRow[]
-  return rows.map((row) =>
-    ({
+async function fetchCriteriaFromBackend(params?: PageParams): Promise<PaginatedResult<Criteria>> {
+  const raw = await apiGetJson<unknown>(withPageParams(enrollmentEndpoints.criteria, params))
+  const page = unwrapPaginatedPayload<CriteriaApiRow>(raw)
+  return {
+    ...page,
+    rows: page.rows.map((row) => ({
       ...criteriaSchema.parse({
         majorCode: row.major_id ?? '',
         combinationCode: row.combination_id,
         rule: formatCriteriaRule(row),
       }),
       _pk: row.id === undefined ? undefined : String(row.id),
-    }),
-  )
+    })),
+  }
 }
 
 function mapCriteriaFormToApiPayload(criteria: Criteria): Record<string, unknown> {
@@ -417,13 +432,13 @@ async function waitImportJobDone(jobId: string): Promise<ImportJobStatus> {
 
 /** Chỉ các route đã mount trong Django `core/urls.py`. */
 export const liveEnrollmentApi = {
-  getCandidates: (): Promise<Candidate[]> => fetchCandidatesFromBackend(),
-  getCombinations: (): Promise<Combination[]> => fetchCombinationsFromBackend(),
-  getSubjects: (): Promise<Subject[]> => fetchSubjectsFromBackend(),
-  getMajors: (): Promise<Major[]> => fetchMajorsFromBackend(),
-  getWishes: (): Promise<Wish[]> => fetchWishesFromBackend(),
-  getExclusions: (): Promise<Exclusion[]> => fetchExclusionsFromBackend(),
-  getCriteria: (): Promise<Criteria[]> => fetchCriteriaFromBackend(),
+  getCandidates: (params?: PageParams): Promise<PaginatedResult<Candidate>> => fetchCandidatesFromBackend(params),
+  getCombinations: (params?: PageParams): Promise<PaginatedResult<Combination>> => fetchCombinationsFromBackend(params),
+  getSubjects: (params?: PageParams): Promise<PaginatedResult<Subject>> => fetchSubjectsFromBackend(params),
+  getMajors: (params?: PageParams): Promise<PaginatedResult<Major>> => fetchMajorsFromBackend(params),
+  getWishes: (params?: PageParams): Promise<PaginatedResult<Wish>> => fetchWishesFromBackend(params),
+  getExclusions: (params?: PageParams): Promise<PaginatedResult<Exclusion>> => fetchExclusionsFromBackend(params),
+  getCriteria: (params?: PageParams): Promise<PaginatedResult<Criteria>> => fetchCriteriaFromBackend(params),
   importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImportAsync, file),
   importCandidateScoresThpt: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.candidateScoresThptImportAsync, file),

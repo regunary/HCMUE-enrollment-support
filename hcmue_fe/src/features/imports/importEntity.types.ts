@@ -15,6 +15,18 @@ export type RowModel = Record<string, string | number>
 
 export type DraftValues = Record<string, string>
 
+export type PageParams = {
+  page: number
+  pageSize: number
+}
+
+export type PaginatedRows = {
+  rows: RowModel[]
+  count: number
+  page: number
+  pageSize: number
+}
+
 export type ImportResultSummary = {
   success: boolean
   created: number
@@ -29,7 +41,7 @@ export type ImportEntityPageProps = {
   importHint?: string
   uploaderPlaceholder?: string
   importButtonLabel?: string
-  getRows: () => Promise<RowModel[]>
+  getRows: (params?: PageParams) => Promise<RowModel[] | PaginatedRows>
   sampleRows: RowModel[]
   fields: ImportFieldDef[]
   rowSchema: ZodType<RowModel>

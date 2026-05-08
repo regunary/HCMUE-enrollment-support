@@ -293,12 +293,14 @@ export function CandidatesPage() {
         fields={CANDIDATE_FIELDS}
         hiddenTableFieldKeys={['scoreJson']}
         rowSchema={candidateSchema}
-        getRows={async () => {
-          const list = await enrollmentApi.getCandidates()
-          return list.map((item) => ({
+        getRows={async (params) => {
+          const result = await enrollmentApi.getCandidates(params)
+          const list = Array.isArray(result) ? result : result.rows
+          const rows = list.map((item) => ({
             ...item,
             priorityGroup: item.priorityGroup || '-',
           }))
+          return Array.isArray(result) ? rows : { ...result, rows }
         }}
         importFile={enrollmentApi.importCandidates}
         saveRow={saveCandidate}
