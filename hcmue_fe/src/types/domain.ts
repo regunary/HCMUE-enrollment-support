@@ -41,6 +41,7 @@ export type Exclusion = {
 }
 
 export type Criteria = {
+  majorCode: string
   combinationCode: string
   rule: string
 }

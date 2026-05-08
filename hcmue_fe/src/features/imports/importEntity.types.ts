@@ -35,6 +35,7 @@ export type ImportEntityPageProps = {
   rowSchema: ZodType<RowModel>
   importFile?: (file: File) => Promise<ImportResultSummary>
   saveRow?: (payload: RowModel, selectedRowIndex: number | null, rows: RowModel[]) => Promise<RowModel[]>
+  deleteRows?: (selectedRows: RowModel[], rows: RowModel[]) => Promise<RowModel[]>
   mockNotice?: string
   selectOptionsByField?: Record<string, Array<{ label: string; value: string }>>
   onDraftChange?: (nextDraft: DraftValues, changedKey: string) => DraftValues

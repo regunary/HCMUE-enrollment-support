@@ -2,7 +2,7 @@
  * English note: Live HTTP implementation — same contracts as mockApi; tune endpoints + schemas only.
  */
 import { displayScoreKeyToParts, subjectScoreTypeToDisplayKey } from '../utils/scoreColumnKeys'
-import { apiGetJson, apiPatchJson, apiPostFormData, apiPostJson } from './http'
+import { apiDeleteJson, apiGetJson, apiPatchJson, apiPostFormData, apiPostJson } from './http'
 import { enrollmentEndpoints } from './endpoints'
 import { unwrapListPayload } from './response'
 import { candidateSchema, combinationSchema, criteriaSchema, exclusionSchema, majorSchema, subjectSchema, wishSchema } from '../schemas/domain.schema'
@@ -35,6 +35,12 @@ type MajorApiRow = {
   combinations?: Array<{ combination_id: string; min_score?: number | string; score_offset?: number | string; is_primary?: boolean }>
 }
 
+type MajorApiPayload = {
+  id?: string
+  name?: string
+  combinations?: Array<{ combination_id: string; min_score: number; score_offset: number; is_primary: boolean }>
+}
+
 type WishApiRow = {
   cccd: string
   major_id: string
@@ -47,6 +53,7 @@ type ExclusionApiRow = {
 }
 
 type CriteriaApiRow = {
+  id?: number
   major_id?: string
   combination_id: string
   subject_id?: string | null
@@ -54,6 +61,70 @@ type CriteriaApiRow = {
   min_total_score?: number | string | null
   note?: string
   condition_json?: unknown
+}
+
+function mapMajorApiToRow(row: MajorApiRow): Major & { _pk?: string } {
+  return {
+    ...majorSchema.parse({
+      code: row.id,
+      name: row.name,
+      combinations: (row.combinations ?? []).map((item) => item.combination_id).join(','),
+    }),
+    _pk: row.id,
+  }
+}
+
+function mapMajorFormToApiPayload(major: Major, includeId: boolean): MajorApiPayload {
+  const combinations = major.combinations
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  return {
+    ...(includeId ? { id: major.code } : {}),
+    name: major.name,
+    combinations: combinations.map((combinationId, index) => ({
+      combination_id: combinationId,
+      min_score: 0,
+      score_offset: 0,
+      is_primary: index === 0,
+    })),
+  }
+}
+
+function mapWishApiToRow(row: WishApiRow & { id?: number }): Wish & { _pk?: string } {
+  return {
+    ...wishSchema.parse({
+      idNumber: row.cccd,
+      majorCode: row.major_id,
+      order: row.rank,
+    }),
+    _pk: row.id === undefined ? undefined : String(row.id),
+  }
+}
+
+function mapWishFormToApiPayload(wish: Wish): Record<string, unknown> {
+  return {
+    cccd: wish.idNumber,
+    major_id: wish.majorCode,
+    rank: wish.order,
+  }
+}
+
+function mapExclusionApiToRow(row: ExclusionApiRow & { id?: number }): Exclusion & { _pk?: string } {
+  return {
+    ...exclusionSchema.parse({
+      idNumber: row.cccd,
+      reason: row.reason,
+    }),
+    _pk: row.id === undefined ? undefined : String(row.id),
+  }
+}
+
+function mapExclusionFormToApiPayload(exclusion: Exclusion): Record<string, unknown> {
+  return {
+    cccd: exclusion.idNumber,
+    reason: exclusion.reason,
+  }
 }
 
 type ImportSummary = {
@@ -215,36 +286,19 @@ async function fetchSubjectsFromBackend(): Promise<Subject[]> {
 async function fetchMajorsFromBackend(): Promise<Major[]> {
   const raw = await apiGetJson<unknown>(enrollmentEndpoints.majors)
   const rows = unwrapListPayload(raw) as MajorApiRow[]
-  return rows.map((row) =>
-    majorSchema.parse({
-      code: row.id,
-      name: row.name,
-      combinations: (row.combinations ?? []).map((item) => item.combination_id).join(','),
-    }),
-  )
+  return rows.map(mapMajorApiToRow)
 }
 
 async function fetchWishesFromBackend(): Promise<Wish[]> {
   const raw = await apiGetJson<unknown>(enrollmentEndpoints.wishes)
-  const rows = unwrapListPayload(raw) as WishApiRow[]
-  return rows.map((row) =>
-    wishSchema.parse({
-      idNumber: row.cccd,
-      majorCode: row.major_id,
-      order: row.rank,
-    }),
-  )
+  const rows = unwrapListPayload(raw) as Array<WishApiRow & { id?: number }>
+  return rows.map(mapWishApiToRow)
 }
 
 async function fetchExclusionsFromBackend(): Promise<Exclusion[]> {
   const raw = await apiGetJson<unknown>(enrollmentEndpoints.exclusions)
-  const rows = unwrapListPayload(raw) as ExclusionApiRow[]
-  return rows.map((row) =>
-    exclusionSchema.parse({
-      idNumber: row.cccd,
-      reason: row.reason,
-    }),
-  )
+  const rows = unwrapListPayload(raw) as Array<ExclusionApiRow & { id?: number }>
+  return rows.map(mapExclusionApiToRow)
 }
 
 function formatCriteriaRule(row: CriteriaApiRow): string {
@@ -262,11 +316,34 @@ async function fetchCriteriaFromBackend(): Promise<Criteria[]> {
   const raw = await apiGetJson<unknown>(enrollmentEndpoints.criteria)
   const rows = unwrapListPayload(raw) as CriteriaApiRow[]
   return rows.map((row) =>
-    criteriaSchema.parse({
+    ({
+      ...criteriaSchema.parse({
+        majorCode: row.major_id ?? '',
+        combinationCode: row.combination_id,
+        rule: formatCriteriaRule(row),
+      }),
+      _pk: row.id === undefined ? undefined : String(row.id),
+    }),
+  )
+}
+
+function mapCriteriaFormToApiPayload(criteria: Criteria): Record<string, unknown> {
+  return {
+    major_id: criteria.majorCode,
+    combination_id: criteria.combinationCode,
+    note: criteria.rule,
+  }
+}
+
+function mapCriteriaApiToRow(row: CriteriaApiRow): Criteria & { _pk?: string } {
+  return {
+    ...criteriaSchema.parse({
+      majorCode: row.major_id ?? '',
       combinationCode: row.combination_id,
       rule: formatCriteriaRule(row),
     }),
-  )
+    _pk: row.id === undefined ? undefined : String(row.id),
+  }
 }
 
 async function fetchCandidateRegionsFromBackend(): Promise<CandidateRegionApiRow[]> {
@@ -343,6 +420,42 @@ export const liveEnrollmentApi = {
   importWishes: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.wishesImport, file),
   importExclusions: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.exclusionsImport, file),
   importCriteria: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.criteriaImport, file),
+  createMajor: async (major: Major): Promise<Major & { _pk?: string }> => {
+    const raw = await apiPostJson<unknown>(enrollmentEndpoints.majors, mapMajorFormToApiPayload(major, true))
+    return mapMajorApiToRow(unwrapDataPayload<MajorApiRow>(raw))
+  },
+  updateMajor: async (code: string, major: Major): Promise<Major & { _pk?: string }> => {
+    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.majors}${code}/`, { name: major.name })
+    return mapMajorApiToRow(unwrapDataPayload<MajorApiRow>(raw))
+  },
+  deleteMajor: (code: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.majors}${code}/`),
+  createWish: async (wish: Wish): Promise<Wish & { _pk?: string }> => {
+    const raw = await apiPostJson<unknown>(enrollmentEndpoints.wishes, mapWishFormToApiPayload(wish))
+    return mapWishApiToRow(unwrapDataPayload<WishApiRow & { id?: number }>(raw))
+  },
+  updateWish: async (pk: string, wish: Wish): Promise<Wish & { _pk?: string }> => {
+    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.wishes}${pk}/`, mapWishFormToApiPayload(wish))
+    return mapWishApiToRow(unwrapDataPayload<WishApiRow & { id?: number }>(raw))
+  },
+  deleteWish: (pk: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.wishes}${pk}/`),
+  createExclusion: async (exclusion: Exclusion): Promise<Exclusion & { _pk?: string }> => {
+    const raw = await apiPostJson<unknown>(enrollmentEndpoints.exclusions, mapExclusionFormToApiPayload(exclusion))
+    return mapExclusionApiToRow(unwrapDataPayload<ExclusionApiRow & { id?: number }>(raw))
+  },
+  updateExclusion: async (pk: string, exclusion: Exclusion): Promise<Exclusion & { _pk?: string }> => {
+    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.exclusions}${pk}/`, mapExclusionFormToApiPayload(exclusion))
+    return mapExclusionApiToRow(unwrapDataPayload<ExclusionApiRow & { id?: number }>(raw))
+  },
+  deleteExclusion: (pk: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.exclusions}${pk}/`),
+  createCriteria: async (criteria: Criteria): Promise<Criteria & { _pk?: string }> => {
+    const raw = await apiPostJson<unknown>(enrollmentEndpoints.criteria, mapCriteriaFormToApiPayload(criteria))
+    return mapCriteriaApiToRow(unwrapDataPayload<CriteriaApiRow>(raw))
+  },
+  updateCriteria: async (pk: string, criteria: Criteria): Promise<Criteria & { _pk?: string }> => {
+    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.criteria}${pk}/`, mapCriteriaFormToApiPayload(criteria))
+    return mapCriteriaApiToRow(unwrapDataPayload<CriteriaApiRow>(raw))
+  },
+  deleteCriteria: (pk: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.criteria}${pk}/`),
   createSubject: (payload: Subject): Promise<Subject> =>
     apiPostJson<unknown>(enrollmentEndpoints.subjects, payload).then((raw) => unwrapDataPayload<Subject>(raw)),
   updateSubject: (id: string, payload: Subject): Promise<Subject> =>

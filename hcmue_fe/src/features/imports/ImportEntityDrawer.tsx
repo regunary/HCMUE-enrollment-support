@@ -1,4 +1,5 @@
 import { Button, Drawer, FormField, Input, NumberInput, Select, Textarea } from '../../components'
+import { Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { ImportFieldDef, RowModel, DraftValues } from './importEntity.types'
 import type { CombinationDraftMap, ScoreDraftRow } from './importEntity.helpers'
@@ -36,7 +37,9 @@ type ImportEntityDrawerProps = {
   startEditFromView: () => void
   cancelFormToView: () => void
   handleSave: () => Promise<void>
+  handleDeleteCurrent?: () => Promise<void>
   saving: boolean
+  deleting?: boolean
 }
 
 const SCORE_DETAIL_SECTIONS = [
@@ -193,6 +196,14 @@ export function ImportEntityDrawer(props: ImportEntityDrawerProps) {
             <Button type="button" onClick={props.startEditFromView}>
               Chỉnh sửa
             </Button>
+            {props.handleDeleteCurrent ? (
+              <Button type="button" variant="secondary" disabled={props.deleting} onClick={() => void props.handleDeleteCurrent?.()}>
+                <span className="inline-flex items-center gap-2">
+                  <Trash2 size={16} aria-hidden />
+                  {props.deleting ? 'Đang xóa...' : 'Xóa'}
+                </span>
+              </Button>
+            ) : null}
           </div>
         </>
       ) : null}

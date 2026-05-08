@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, Button, Card, DataTable, Uploader } from '../../components'
+import { Trash2 } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync'
 import { writeSheet } from '../../utils/excel'
 import { useToast } from '../feedback/useToast'
@@ -33,6 +34,8 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
   const { showToast } = useToast()
   const [importing, setImporting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set())
   const listRefreshTokenRef = useRef<number | undefined>(undefined)
   const showForm = draft !== null && (drawerMode === 'create-form' || drawerMode === 'edit-form')
 
@@ -40,6 +43,7 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     const result = await execute()
     if (result) {
       setRows(result)
+      setSelectedRowIndices(new Set())
     }
   }
 
@@ -48,6 +52,7 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     void execute().then((result) => {
       if (active && result) {
         setRows(result)
+        setSelectedRowIndices(new Set())
       }
     })
     return () => {
@@ -77,6 +82,7 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     void execute().then((result) => {
       if (result) {
         setRows(result)
+        setSelectedRowIndices(new Set())
       }
     })
   }, [props.listRefreshToken, execute])
@@ -129,6 +135,22 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     setDraft(null)
     setScoreRows([])
     setCombinationMap({})
+  }
+
+  const toggleRowSelected = (rowIndex: number, checked: boolean) => {
+    setSelectedRowIndices((current) => {
+      const next = new Set(current)
+      if (checked) {
+        next.add(rowIndex)
+      } else {
+        next.delete(rowIndex)
+      }
+      return next
+    })
+  }
+
+  const toggleAllRowsSelected = (checked: boolean) => {
+    setSelectedRowIndices(checked ? new Set(rows.map((_row, index) => index)) : new Set())
   }
 
   const startEditFromView = () => {
@@ -192,6 +214,49 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
     closeDrawer()
   }
 
+  const deleteSelectedRows = async (indices: number[]) => {
+    if (!props.deleteRows || indices.length === 0) {
+      return
+    }
+    const selectedRows = indices.map((index) => rows[index]).filter(Boolean)
+    setDeleting(true)
+    try {
+      const nextRows = await props.deleteRows(selectedRows, rows)
+      setRows(nextRows)
+      setSelectedRowIndices(new Set())
+      setSelectedRowIndex(null)
+      closeDrawer()
+      showToast(indices.length === 1 ? 'Đã xóa bản ghi.' : `Đã xóa ${indices.length} bản ghi.`, 'success')
+      await reloadRows()
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : 'Xóa dữ liệu thất bại.'
+      showToast(message, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCurrent = async () => {
+    if (selectedRowIndex === null) {
+      return
+    }
+    if (!window.confirm('Xóa bản ghi này?')) {
+      return
+    }
+    await deleteSelectedRows([selectedRowIndex])
+  }
+
+  const handleDeleteBulk = async () => {
+    const indices = Array.from(selectedRowIndices).sort((a, b) => a - b)
+    if (indices.length === 0) {
+      return
+    }
+    if (!window.confirm(`Xóa ${indices.length} bản ghi đã chọn?`)) {
+      return
+    }
+    await deleteSelectedRows(indices)
+  }
+
   const handleImport = async () => {
     if (!selectedFile || !props.importFile) {
       return
@@ -247,6 +312,18 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         <Button variant="secondary" onClick={openCreateDrawer}>
           Thêm mới thủ công
         </Button>
+        {props.deleteRows ? (
+          <Button
+            variant="secondary"
+            onClick={() => void handleDeleteBulk()}
+            disabled={selectedRowIndices.size === 0 || deleting}
+          >
+            <span className="inline-flex items-center gap-2">
+              <Trash2 size={16} aria-hidden />
+              {deleting ? 'Đang xóa...' : `Xóa đã chọn${selectedRowIndices.size ? ` (${selectedRowIndices.size})` : ''}`}
+            </span>
+          </Button>
+        ) : null}
       </div>
 
       {selectedFile ? (
@@ -278,6 +355,9 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
           columns={columns}
           rows={rows}
           selectedRowIndex={selectedRowIndex}
+          selectedRowIndices={selectedRowIndices}
+          onToggleRowSelected={props.deleteRows ? toggleRowSelected : undefined}
+          onToggleAllRowsSelected={props.deleteRows ? toggleAllRowsSelected : undefined}
           onRowClick={(row, rowIndex) => {
             openEditDrawer(row, rowIndex)
           }}
@@ -306,7 +386,9 @@ export function ImportEntityPage(props: ImportEntityPageProps) {
         startEditFromView={startEditFromView}
         cancelFormToView={cancelFormToView}
         handleSave={handleSave}
+        handleDeleteCurrent={props.deleteRows && showDetail ? handleDeleteCurrent : undefined}
         saving={saving}
+        deleting={deleting}
       />
     </Card>
   )

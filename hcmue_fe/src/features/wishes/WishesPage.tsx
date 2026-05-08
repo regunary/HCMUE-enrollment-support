@@ -4,7 +4,8 @@
 import { wishSchema } from '../../schemas/domain.schema'
 import { enrollmentApi } from '../../services/enrollmentApi'
 import { ImportEntityPage } from '../imports/ImportEntityPage'
-import type { ImportFieldDef } from '../imports/importEntity.types'
+import type { ImportFieldDef, RowModel } from '../imports/importEntity.types'
+import type { Wish } from '../../types/domain'
 
 const WISH_FIELDS: ImportFieldDef[] = [
   { key: 'idNumber', label: 'Số CCCD', kind: 'text' },
@@ -13,6 +14,26 @@ const WISH_FIELDS: ImportFieldDef[] = [
 ]
 
 export function WishesPage() {
+  const saveWish = async (payload: RowModel, selectedRowIndex: number | null, rows: RowModel[]): Promise<RowModel[]> => {
+    const wish = payload as Wish
+    if (selectedRowIndex !== null && enrollmentApi.updateWish) {
+      const pk = String(rows[selectedRowIndex]?._pk ?? '')
+      const updated = await enrollmentApi.updateWish(pk, wish)
+      return rows.map((row, index) => (index === selectedRowIndex ? (updated as RowModel) : row))
+    }
+    if (enrollmentApi.createWish) {
+      const created = await enrollmentApi.createWish(wish)
+      return [created as RowModel, ...rows]
+    }
+    return selectedRowIndex === null ? [payload, ...rows] : rows.map((row, index) => (index === selectedRowIndex ? payload : row))
+  }
+
+  const deleteWishes = async (selectedRows: RowModel[], rows: RowModel[]): Promise<RowModel[]> => {
+    await Promise.all(selectedRows.map((row) => enrollmentApi.deleteWish?.(String(row._pk))))
+    const selected = new Set(selectedRows)
+    return rows.filter((row) => !selected.has(row))
+  }
+
   return (
     <ImportEntityPage
       title="Nhập nguyện vọng"
@@ -21,7 +42,9 @@ export function WishesPage() {
       rowSchema={wishSchema}
       getRows={enrollmentApi.getWishes}
       importFile={enrollmentApi.importWishes}
-      sampleRows={[{ idNumber: '079300000000', majorCode: '7480201', order: 1 }]}
+      saveRow={saveWish}
+      deleteRows={enrollmentApi.deleteWish ? deleteWishes : undefined}
+      sampleRows={[{ CCCD: '079300000000', MaXT: '7480201', TTNV: 1 }]}
     />
   )
 }

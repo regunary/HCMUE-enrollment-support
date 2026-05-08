@@ -20,7 +20,7 @@ export class ApiHttpError extends Error {
 }
 
 type RequestOptions = {
-  method: 'GET' | 'POST' | 'PATCH'
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   path: string
   payload?: unknown
   formData?: FormData
@@ -230,4 +230,8 @@ export async function apiPostJson<T>(path: string, payload: unknown): Promise<T>
 
 export async function apiPatchJson<T>(path: string, payload: unknown): Promise<T> {
   return requestJson<T>({ method: 'PATCH', path, payload })
+}
+
+export async function apiDeleteJson<T>(path: string): Promise<T> {
+  return requestJson<T>({ method: 'DELETE', path })
 }

@@ -92,6 +92,7 @@ export const exclusionSchema = z.object({
 })
 
 export const criteriaSchema = z.object({
+  majorCode: z.string().min(1, 'Mã ngành không được để trống.'),
   combinationCode: z.string().min(1, 'Mã tổ hợp không được để trống.'),
   rule: z.string().min(1, 'Điều kiện xét tuyển không được để trống.'),
 })
