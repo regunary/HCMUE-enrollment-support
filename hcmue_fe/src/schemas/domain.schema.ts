@@ -5,7 +5,8 @@ import { z } from 'zod'
 
 export const candidateSchema = z.object({
   idNumber: z.string().min(8, 'CCCD không hợp lệ.'),
-  priorityRegion: z.string().min(1, 'Khu vực ưu tiên không được để trống.'),
+  // Backend accepts empty region_code; keep FE contract aligned.
+  priorityRegion: z.string().default(''),
   priorityBonus: z.number().min(0, 'Điểm ưu tiên khu vực không hợp lệ.').default(0),
   // Backend accepts empty special_code; keep FE contract aligned.
   priorityGroup: z.string().default(''),
