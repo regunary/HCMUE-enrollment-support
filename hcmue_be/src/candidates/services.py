@@ -37,7 +37,7 @@ SCORE_HEADERS = {
     'TO', 'VA', 'LI', 'LY', 'HO', 'SI', 'SU', 'DI', 'GDCD', 'GDKTPL', 'TI', 'CNNN', 'CNCN',
     'N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7',
     'TO_NL', 'VA_NL', 'LI_NL', 'LY_NL', 'HO_NL', 'SI_NL', 'TA_NL',
-    'NK2', 'NK3', 'NK4', 'NK5',
+    'NK2', 'NK3', 'NK4', 'NK5', 'NK6',
     'TO_HB', 'VA_HB', 'LI_HB', 'LY_HB', 'HO_HB', 'SI_HB', 'SU_HB', 'DI_HB', 'TA_HB',
     'TI_HB', 'CNNN_HB', 'CNCN_HB', 'GDCD_HB', 'GDKTPL_HB',
 }
@@ -93,6 +93,7 @@ APTITUDE_SCORE_COLUMNS = {
     'NK3': 'NK3',
     'NK4': 'NK4',
     'NK5': 'NK5',
+    'NK6': 'NK6',
 }
 
 @dataclass

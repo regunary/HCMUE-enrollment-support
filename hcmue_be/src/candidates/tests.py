@@ -269,6 +269,7 @@ class CandidateScoreImportApiTests(TestCase):
         self.physics = Subject.objects.create(id='LI', name='Lí')
         self.chemistry = Subject.objects.create(id='HO', name='Hóa')
         self.aptitude = Subject.objects.create(id='NK2', name='Năng khiếu 2')
+        self.aptitude_nk6 = Subject.objects.create(id='NK6', name='Năng khiếu 6')
 
     def test_import_thpt_scores_by_cccd(self):
         file = make_xlsx(['CCCD', 'TO', 'VA'], [['012345678901', 8.5, 7.25]])
@@ -310,6 +311,16 @@ class CandidateScoreImportApiTests(TestCase):
         self.assertEqual(response.data['created'], 1)
         board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.CB)
         self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.aptitude).score, 9.5)
+
+    def test_import_nang_khieu_scores_accepts_nk6(self):
+        file = make_xlsx(['CCCD', 'NK6'], [['012345678901', 8.75]])
+
+        response = self.client.post('/api/v1/candidates/scores/nang-khieu/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        board = ScoreBoard.objects.get(candidate=self.candidate, score_type=ScoreTypeChoices.CB)
+        self.assertEqual(SubjectScore.objects.get(score_board=board, subject=self.aptitude_nk6).score, 8.75)
 
     def test_import_hoc_ba_scores_maps_hb_columns_to_base_subjects(self):
         file = make_xlsx(['CCCD', 'TO_HB', 'VA_HB'], [['012345678901', 9.0, 8.75]])

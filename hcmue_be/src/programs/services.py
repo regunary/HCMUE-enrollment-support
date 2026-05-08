@@ -14,6 +14,10 @@ from src.programs.models import (
 
 REQUIRED_COMBINATION_HEADERS = {'MaTH', 'Mon1', 'Mon2', 'Mon3', 'TrongSo1', 'TrongSo2', 'TrongSo3'}
 REQUIRED_SUBJECT_HEADERS = {'MaMon', 'TenMon'}
+LEGACY_COMBINATION_SUFFIXES = {
+    '_HB': ScoreTypeChoices.HOCBA,
+    '_NL': ScoreTypeChoices.DGNL,
+}
 
 
 def import_subjects(file_obj):
@@ -325,12 +329,13 @@ def _validate_import_row(row_number, values):
     if not code:
         return RowError(row_number, 'CODE_REQUIRED', 'MaTH là bắt buộc', {'field': 'MaTH', 'value': code})
 
-    subjects = [_clean(values.get(f'Mon{index}')) for index in range(1, 4)]
-    if any(not subject_id for subject_id in subjects):
+    raw_subjects = [_clean(values.get(f'Mon{index}')) for index in range(1, 4)]
+    if any(not subject_id for subject_id in raw_subjects):
         return RowError(row_number, 'FIELD_REQUIRED', 'Mon1, Mon2, Mon3 là bắt buộc')
-    if len(set(subjects)) != len(subjects):
+    subjects = [_parse_legacy_combination_subject(subject_id) for subject_id in raw_subjects]
+    if len(set(subject_id for subject_id, _score_type in subjects)) != len(subjects):
         return RowError(row_number, 'SUBJECTS_DUPLICATE', 'Các môn trong tổ hợp không được trùng nhau')
-    missing_subjects = [subject_id for subject_id in subjects if not Subject.objects.filter(id=subject_id).exists()]
+    missing_subjects = [subject_id for subject_id, _score_type in subjects if not Subject.objects.filter(id=subject_id).exists()]
     if missing_subjects:
         return RowError(row_number, 'SUBJECT_NOT_FOUND', 'Môn học không tồn tại', {'field': 'Mon', 'value': ','.join(missing_subjects)})
 
@@ -355,11 +360,7 @@ def _upsert_combination_from_values(values):
 
     code = _clean(values.get('MaTH'))
     subjects = [
-        {
-            'score_type': ScoreTypeChoices.THPT,
-            'subject_id': _clean(values.get(f'Mon{index}')),
-            'weight': _to_decimal(values.get(f'TrongSo{index}')),
-        }
+        _combination_subject_payload(values, index)
         for index in range(1, 4)
     ]
     with transaction.atomic():
@@ -377,6 +378,36 @@ def _upsert_combination_from_values(values):
             _log_subject_combination(combination, ActionsChoices.UPDATE, combination.field_changed)
             return 'updated'
     return 'skipped'
+
+
+def _combination_subject_payload(values, index):
+    """
+    Convert legacy Mon columns into the normalized subject + score type payload.
+
+    Legacy exports may encode the score source in the subject code, e.g. TO_HB or
+    LI_NL. The new model stores that source separately in CombinationSubject.score_type.
+    """
+
+    subject_id, score_type = _parse_legacy_combination_subject(_clean(values.get(f'Mon{index}')))
+    return {
+        'score_type': score_type,
+        'subject_id': subject_id,
+        'weight': _to_decimal(values.get(f'TrongSo{index}')),
+    }
+
+
+def _parse_legacy_combination_subject(raw_subject_id):
+    """
+    Parse old combination subject codes that include score-source suffixes.
+    """
+
+    subject_id = _clean(raw_subject_id).upper()
+    for suffix, score_type in LEGACY_COMBINATION_SUFFIXES.items():
+        if subject_id.endswith(suffix):
+            return subject_id[:-len(suffix)], score_type
+    if subject_id.startswith('NK'):
+        return subject_id, ScoreTypeChoices.CB
+    return subject_id, ScoreTypeChoices.THPT
 
 
 def _replace_combination_subjects(combination, rows):

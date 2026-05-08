@@ -151,6 +151,7 @@ class CombinationApiTests(TestCase):
         self.physics = Subject.objects.create(id='LI', name='Lí')
         self.chemistry = Subject.objects.create(id='HO', name='Hóa')
         self.literature = Subject.objects.create(id='VA', name='Văn')
+        self.aptitude = Subject.objects.create(id='NK2', name='Năng khiếu 2')
 
     def test_import_combinations_creates_combination_with_subjects(self):
         file = make_xlsx(
@@ -166,6 +167,24 @@ class CombinationApiTests(TestCase):
         entries = list(CombinationSubject.objects.filter(subject_combination=combination).order_by('position'))
         self.assertEqual([entry.subject_id for entry in entries], ['TO', 'LI', 'HO'])
         self.assertTrue(all(entry.score_type == ScoreTypeChoices.THPT for entry in entries))
+
+    def test_import_combinations_parses_legacy_score_type_suffixes(self):
+        file = make_xlsx(
+            ['MaTH', 'Mon1', 'Mon2', 'Mon3', 'TrongSo1', 'TrongSo2', 'TrongSo3'],
+            [['A00HO', 'TO_HB', 'LI_NL', 'NK2', 1, 1, 1]],
+        )
+
+        response = self.client.post('/api/v1/combinations/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        combination = SubjectCombination.objects.get(id='A00HO')
+        entries = list(CombinationSubject.objects.filter(subject_combination=combination).order_by('position'))
+        self.assertEqual([entry.subject_id for entry in entries], ['TO', 'LI', 'NK2'])
+        self.assertEqual(
+            [entry.score_type for entry in entries],
+            [ScoreTypeChoices.HOCBA, ScoreTypeChoices.DGNL, ScoreTypeChoices.CB],
+        )
 
     def test_import_combinations_rejects_duplicate_subjects(self):
         file = make_xlsx(
