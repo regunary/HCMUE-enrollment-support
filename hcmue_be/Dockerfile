@@ -18,4 +18,5 @@ COPY . .
 EXPOSE 8000
 
 # Run migrations before serving so a fresh Postgres volume can boot without manual steps.
-CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:8000"]
+# Increase timeout for heavy import jobs to avoid worker kill at default 30s.
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:8000 --timeout 600 --graceful-timeout 120 --workers 2"]
