@@ -270,7 +270,7 @@ export function CandidatesPage() {
                 type="button"
                 variant="secondary"
                 onClick={() =>
-                  writeSheet([{ CCCD: '079300000000', NK2: 8.0, NK3: 7.5, NK4: 7.0, NK5: '' }], 'mau-diem-nang-khieu.xlsx')
+                  writeSheet([{ CCCD: '079300000000', NK2: 8.0, NK3: 7.5, NK4: 7.0, NK5: '', NK6: '' }], 'mau-diem-nang-khieu.xlsx')
                 }
               >
                 Tải mẫu
