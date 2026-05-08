@@ -49,7 +49,7 @@ export function MajorsPage() {
       importFile={enrollmentApi.importMajors}
       saveRow={saveMajor}
       deleteRows={enrollmentApi.deleteMajor ? deleteMajors : undefined}
-      sampleRows={[{ MaXT: '7480201', TenNganh: 'Công nghệ thông tin', MaTH: 'A00', DiemSan: 18, DiemLech: 0, Goc: 1 }]}
+      sampleRows={[{ MaNganh: '7480201', TenNganh: 'Công nghệ thông tin', MaTH: 'A00', DiemSan: 18, DiemLech: 0 }]}
     />
   )
 }
