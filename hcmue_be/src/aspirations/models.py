@@ -6,7 +6,7 @@ from core.choices import ActionsChoices, AdmissionStatusChoices
 
 class Aspiration(AuditModel):
     candidate         = models.ForeignKey('candidates.Candidate', on_delete=models.CASCADE, related_name='aspirations')
-    major_combination = models.ForeignKey('programs.MajorCombination', on_delete=models.PROTECT, related_name='aspirations')
+    major             = models.ForeignKey('programs.Major', on_delete=models.PROTECT, related_name='aspirations')
     rank              = models.PositiveSmallIntegerField()
     computed_score    = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
@@ -14,18 +14,18 @@ class Aspiration(AuditModel):
         db_table    = 'aspiration'
         constraints = [
             models.UniqueConstraint(fields=['candidate', 'rank'], name='uq_aspiration_rank'),
-            models.UniqueConstraint(fields=['candidate', 'major_combination'], name='uq_aspiration_major_combination'),
+            models.UniqueConstraint(fields=['candidate', 'major'], name='uq_aspiration_major'),
         ]
         indexes = [
             models.Index(fields=['candidate']),
-            models.Index(fields=['major_combination', 'computed_score']),
+            models.Index(fields=['major', 'computed_score'], name='aspiration_major_score_idx'),
         ]
 
 
 class AspirationLog(models.Model):
     aspiration           = models.ForeignKey(Aspiration, on_delete=models.SET_NULL, null=True, blank=True, db_column='aspiration_id')
     candidate_id         = models.UUIDField()
-    major_combination_id = models.IntegerField()
+    major_id             = models.CharField(max_length=10)
     rank                 = models.PositiveSmallIntegerField()
     computed_score       = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     action               = models.CharField(max_length=10, choices=ActionsChoices.choices)
@@ -34,6 +34,27 @@ class AspirationLog(models.Model):
 
     class Meta:
         db_table = 'aspiration_log'
+
+
+class ExcludedCandidate(AuditModel):
+    candidate = models.OneToOneField('candidates.Candidate', on_delete=models.CASCADE, related_name='exclusion')
+    reason    = models.TextField()
+
+    class Meta:
+        db_table = 'excluded_candidate'
+
+
+class ExcludedCandidateLog(models.Model):
+    excluded_candidate = models.ForeignKey(ExcludedCandidate, on_delete=models.SET_NULL, null=True, blank=True, db_column='excluded_candidate_id')
+    candidate_id       = models.UUIDField()
+    cccd               = models.CharField(max_length=12)
+    reason             = models.TextField()
+    action             = models.CharField(max_length=10, choices=ActionsChoices.choices)
+    field_changed      = models.CharField(max_length=500, null=True, blank=True)
+    create_date        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'excluded_candidate_log'
 
 
 class AdmissionResult(AuditModel):

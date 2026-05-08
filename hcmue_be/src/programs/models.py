@@ -110,7 +110,7 @@ class MajorCombination(AuditModel):
     major               = models.ForeignKey(Major, on_delete=models.CASCADE, related_name='combinations')
     subject_combination = models.ForeignKey(SubjectCombination, on_delete=models.PROTECT, related_name='major_combinations')
     min_score           = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    dgnl_offset         = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    score_offset        = models.DecimalField(max_digits=4, decimal_places=2, default=0)
     is_primary          = models.BooleanField(default=False)
 
     class Meta:
@@ -127,7 +127,7 @@ class MajorCombinationLog(models.Model):
     major_id               = models.CharField(max_length=10)
     subject_combination_id = models.CharField(max_length=20)
     min_score              = models.DecimalField(max_digits=5, decimal_places=2)
-    dgnl_offset            = models.DecimalField(max_digits=4, decimal_places=2)
+    score_offset           = models.DecimalField(max_digits=4, decimal_places=2)
     is_primary             = models.BooleanField()
     action                 = models.CharField(max_length=10, choices=ActionsChoices.choices)
     field_changed          = models.CharField(max_length=500, null=True, blank=True)
@@ -168,6 +168,7 @@ class AdmissionCondition(AuditModel):
     min_subject_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     min_total_score   = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note              = models.TextField(blank=True, default='')
+    condition_json    = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = 'admission_condition'
@@ -180,6 +181,7 @@ class AdmissionConditionLog(models.Model):
     min_subject_score    = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     min_total_score      = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     note                 = models.TextField(blank=True, default='')
+    condition_json       = models.JSONField(null=True, blank=True)
     action               = models.CharField(max_length=10, choices=ActionsChoices.choices)
     field_changed        = models.CharField(max_length=500, null=True, blank=True)
     create_date          = models.DateTimeField(auto_now_add=True)
