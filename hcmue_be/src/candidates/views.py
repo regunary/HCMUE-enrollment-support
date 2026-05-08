@@ -31,6 +31,7 @@ from src.candidates.services import (
 )
 from core.choices import ScoreTypeChoices
 from src.imports.models import ImportBatch
+from src.imports.pagination import paginated_response_payload
 from src.candidates.tasks import (
     import_candidate_basic_info_task,
     import_candidate_scores_task,
@@ -304,7 +305,7 @@ class CandidateListCreateView(GenericAPIView):
         """
 
         candidates = Candidate.objects.filter(is_deleted=False).order_by('create_date')
-        return Response({'success': True, 'results': [serialize_candidate(candidate) for candidate in candidates]})
+        return Response(paginated_response_payload(request, candidates, serialize_candidate))
 
     def post(self, request):
         """

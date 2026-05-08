@@ -36,6 +36,7 @@ from src.programs.services import (
     update_subject_manually,
 )
 from src.candidates.services import create_import_batch
+from src.imports.pagination import paginated_response_payload
 from src.programs.tasks import import_program_master_data_task
 
 
@@ -115,7 +116,7 @@ class CombinationListCreateView(GenericAPIView):
         """
 
         combinations = SubjectCombination.objects.all().order_by('id')
-        return Response({'success': True, 'results': [serialize_combination(combination) for combination in combinations]})
+        return Response(paginated_response_payload(request, combinations, serialize_combination))
 
     def post(self, request):
         """
@@ -160,7 +161,7 @@ class SubjectListCreateView(GenericAPIView):
         """
 
         subjects = Subject.objects.all().order_by('id')
-        return Response({'success': True, 'results': [serialize_subject(subject) for subject in subjects]})
+        return Response(paginated_response_payload(request, subjects, serialize_subject))
 
     def post(self, request):
         """
@@ -445,7 +446,7 @@ class MajorListCreateView(GenericAPIView):
 
     def get(self, request):
         majors = Major.objects.prefetch_related('combinations').all().order_by('id')
-        return Response({'success': True, 'results': [serialize_major(major) for major in majors]})
+        return Response(paginated_response_payload(request, majors, serialize_major))
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -521,7 +522,7 @@ class CriteriaListCreateView(GenericAPIView):
             'major_combination__subject_combination_id',
             'id',
         )
-        return Response({'success': True, 'results': [serialize_admission_condition(condition) for condition in conditions]})
+        return Response(paginated_response_payload(request, conditions, serialize_admission_condition))
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)

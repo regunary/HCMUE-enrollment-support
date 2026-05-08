@@ -22,6 +22,7 @@ from src.aspirations.services import (
 )
 from src.aspirations.tasks import import_aspiration_data_task
 from src.candidates.services import create_import_batch
+from src.imports.pagination import paginated_response_payload
 from src.programs.views import validation_error_response
 
 
@@ -39,7 +40,7 @@ class WishListCreateView(GenericAPIView):
 
     def get(self, request):
         wishes = Aspiration.objects.select_related('candidate', 'major').all().order_by('candidate__cccd', 'rank')
-        return Response({'success': True, 'results': [serialize_wish(wish) for wish in wishes]})
+        return Response(paginated_response_payload(request, wishes, serialize_wish))
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -113,7 +114,7 @@ class ExclusionListCreateView(GenericAPIView):
 
     def get(self, request):
         exclusions = ExcludedCandidate.objects.select_related('candidate').all().order_by('candidate__cccd')
-        return Response({'success': True, 'results': [serialize_exclusion(exclusion) for exclusion in exclusions]})
+        return Response(paginated_response_payload(request, exclusions, serialize_exclusion))
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
