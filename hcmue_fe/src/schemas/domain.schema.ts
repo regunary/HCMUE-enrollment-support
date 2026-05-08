@@ -16,8 +16,6 @@ export const candidateSchema = z.object({
   scoreJson: z.string().min(2, 'Điểm môn không được để trống.'),
 })
 
-const WEIGHT_SUM_EPS = 1e-6
-
 export const combinationSchema = z
   .object({
     code: z.string().min(1, 'Mã tổ hợp không được để trống.'),
@@ -60,14 +58,6 @@ export const combinationSchema = z
       return
     }
 
-    const sum = weights.reduce((acc, value) => acc + value, 0)
-    if (Math.abs(sum - 1) > WEIGHT_SUM_EPS) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Tổng trọng số phải bằng 1 (hiện tại ≈ ${sum.toFixed(4)}).`,
-        path: ['weights'],
-      })
-    }
   })
 
 export const subjectSchema = z.object({
