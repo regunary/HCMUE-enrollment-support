@@ -748,8 +748,9 @@ Response `200` (ví dụ):
 ## major
 
 ### post: `/api/v1/majors/import/`
-- Required columns: `MaNganh, TenNganh, MaTH`
-- Optional columns: `DiemSan, DiemLech`
+- Required columns: `MaNganh` (hoac `MaXT`), `TenNganh, MaTH, DiemSan, DiemLech`
+- Optional columns: `Goc`
+- Neu khong co cot `Goc`, dong dau tien cua moi `MaNganh`/`MaXT` duoc xem la to hop goc.
 - Error codes:
   - `FILE_INVALID`
   - `MISSING_REQUIRED_COLUMNS`
