@@ -5,8 +5,8 @@ import { displayScoreKeyToParts, subjectScoreTypeToDisplayKey } from '../utils/s
 import { apiGetJson, apiPatchJson, apiPostFormData, apiPostJson } from './http'
 import { enrollmentEndpoints } from './endpoints'
 import { unwrapListPayload } from './response'
-import { candidateSchema, combinationSchema, subjectSchema } from '../schemas/domain.schema'
-import type { Candidate, Combination, Subject } from '../types/domain'
+import { candidateSchema, combinationSchema, criteriaSchema, exclusionSchema, majorSchema, subjectSchema, wishSchema } from '../schemas/domain.schema'
+import type { Candidate, Combination, Criteria, Exclusion, Major, Subject, Wish } from '../types/domain'
 
 type CandidateApiRow = {
   id?: string
@@ -27,6 +27,33 @@ type CombinationApiRow = {
 type SubjectApiRow = {
   id: string
   name: string
+}
+
+type MajorApiRow = {
+  id: string
+  name: string
+  combinations?: Array<{ combination_id: string; min_score?: number | string; score_offset?: number | string; is_primary?: boolean }>
+}
+
+type WishApiRow = {
+  cccd: string
+  major_id: string
+  rank: number
+}
+
+type ExclusionApiRow = {
+  cccd: string
+  reason: string
+}
+
+type CriteriaApiRow = {
+  major_id?: string
+  combination_id: string
+  subject_id?: string | null
+  min_subject_score?: number | string | null
+  min_total_score?: number | string | null
+  note?: string
+  condition_json?: unknown
 }
 
 type ImportSummary = {
@@ -185,6 +212,63 @@ async function fetchSubjectsFromBackend(): Promise<Subject[]> {
   return rows.map((row) => subjectSchema.parse(row))
 }
 
+async function fetchMajorsFromBackend(): Promise<Major[]> {
+  const raw = await apiGetJson<unknown>(enrollmentEndpoints.majors)
+  const rows = unwrapListPayload(raw) as MajorApiRow[]
+  return rows.map((row) =>
+    majorSchema.parse({
+      code: row.id,
+      name: row.name,
+      combinations: (row.combinations ?? []).map((item) => item.combination_id).join(','),
+    }),
+  )
+}
+
+async function fetchWishesFromBackend(): Promise<Wish[]> {
+  const raw = await apiGetJson<unknown>(enrollmentEndpoints.wishes)
+  const rows = unwrapListPayload(raw) as WishApiRow[]
+  return rows.map((row) =>
+    wishSchema.parse({
+      idNumber: row.cccd,
+      majorCode: row.major_id,
+      order: row.rank,
+    }),
+  )
+}
+
+async function fetchExclusionsFromBackend(): Promise<Exclusion[]> {
+  const raw = await apiGetJson<unknown>(enrollmentEndpoints.exclusions)
+  const rows = unwrapListPayload(raw) as ExclusionApiRow[]
+  return rows.map((row) =>
+    exclusionSchema.parse({
+      idNumber: row.cccd,
+      reason: row.reason,
+    }),
+  )
+}
+
+function formatCriteriaRule(row: CriteriaApiRow): string {
+  const parts = [
+    row.subject_id ? `Môn ${row.subject_id}` : '',
+    row.min_subject_score !== null && row.min_subject_score !== undefined ? `điểm môn >= ${row.min_subject_score}` : '',
+    row.min_total_score !== null && row.min_total_score !== undefined ? `tổng >= ${row.min_total_score}` : '',
+    row.note ?? '',
+    row.condition_json ? JSON.stringify(row.condition_json) : '',
+  ].filter(Boolean)
+  return parts.join('; ') || 'Điều kiện xét tuyển'
+}
+
+async function fetchCriteriaFromBackend(): Promise<Criteria[]> {
+  const raw = await apiGetJson<unknown>(enrollmentEndpoints.criteria)
+  const rows = unwrapListPayload(raw) as CriteriaApiRow[]
+  return rows.map((row) =>
+    criteriaSchema.parse({
+      combinationCode: row.combination_id,
+      rule: formatCriteriaRule(row),
+    }),
+  )
+}
+
 async function fetchCandidateRegionsFromBackend(): Promise<CandidateRegionApiRow[]> {
   const raw = await apiGetJson<unknown>(enrollmentEndpoints.candidateRegions)
   const rows = unwrapListPayload(raw) as CandidateRegionApiRow[]
@@ -212,11 +296,15 @@ async function uploadImportFile(path: string, file: File): Promise<ImportSummary
   }
 }
 
-/** Chỉ các route đã mount trong Django `core/urls.py` (candidates, combinations, subjects, auth). */
+/** Chỉ các route đã mount trong Django `core/urls.py`. */
 export const liveEnrollmentApi = {
   getCandidates: (): Promise<Candidate[]> => fetchCandidatesFromBackend(),
   getCombinations: (): Promise<Combination[]> => fetchCombinationsFromBackend(),
   getSubjects: (): Promise<Subject[]> => fetchSubjectsFromBackend(),
+  getMajors: (): Promise<Major[]> => fetchMajorsFromBackend(),
+  getWishes: (): Promise<Wish[]> => fetchWishesFromBackend(),
+  getExclusions: (): Promise<Exclusion[]> => fetchExclusionsFromBackend(),
+  getCriteria: (): Promise<Criteria[]> => fetchCriteriaFromBackend(),
   importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImport, file),
   importCandidateScoresThpt: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.candidateScoresThptImport, file),
@@ -251,6 +339,10 @@ export const liveEnrollmentApi = {
   importCombinations: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.combinationsImport, file),
   importSubjects: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.subjectsImport, file),
+  importMajors: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.majorsImport, file),
+  importWishes: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.wishesImport, file),
+  importExclusions: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.exclusionsImport, file),
+  importCriteria: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.criteriaImport, file),
   createSubject: (payload: Subject): Promise<Subject> =>
     apiPostJson<unknown>(enrollmentEndpoints.subjects, payload).then((raw) => unwrapDataPayload<Subject>(raw)),
   updateSubject: (id: string, payload: Subject): Promise<Subject> =>

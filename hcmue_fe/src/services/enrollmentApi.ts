@@ -36,6 +36,34 @@ export type EnrollmentDataApi = {
     skipped: number
     errors: Array<Record<string, unknown>>
   }>
+  importMajors?: (file: File) => Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors: Array<Record<string, unknown>>
+  }>
+  importWishes?: (file: File) => Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors: Array<Record<string, unknown>>
+  }>
+  importExclusions?: (file: File) => Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors: Array<Record<string, unknown>>
+  }>
+  importCriteria?: (file: File) => Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors: Array<Record<string, unknown>>
+  }>
   importCandidateScoresThpt?: (file: File) => Promise<{
     success: boolean
     created: number
@@ -94,11 +122,10 @@ const mixedApi: EnrollmentDataApi = {
   getCandidates: () => liveEnrollmentApi.getCandidates(),
   getCombinations: () => liveEnrollmentApi.getCombinations(),
   getSubjects: () => liveEnrollmentApi.getSubjects(),
-  /** BE chưa có route — luôn mock (xem enrollmentEndpoints + core/urls.py). */
-  getMajors: () => mockApi.getMajors(),
-  getWishes: () => mockApi.getWishes(),
-  getExclusions: () => mockApi.getExclusions(),
-  getCriteria: () => mockApi.getCriteria(),
+  getMajors: () => liveEnrollmentApi.getMajors(),
+  getWishes: () => liveEnrollmentApi.getWishes(),
+  getExclusions: () => liveEnrollmentApi.getExclusions(),
+  getCriteria: () => liveEnrollmentApi.getCriteria(),
   getCutoffs: () => mockApi.getCutoffs(),
   importCandidates: (file) => liveEnrollmentApi.importCandidates(file),
   importCombinations: (file) => liveEnrollmentApi.importCombinations(file),
@@ -107,6 +134,10 @@ const mixedApi: EnrollmentDataApi = {
   importCandidateScoresHocBa: (file) => liveEnrollmentApi.importCandidateScoresHocBa(file),
   importCandidateScoresNangLuc: (file) => liveEnrollmentApi.importCandidateScoresNangLuc(file),
   importCandidateScoresNangKhieu: (file) => liveEnrollmentApi.importCandidateScoresNangKhieu(file),
+  importMajors: (file) => liveEnrollmentApi.importMajors(file),
+  importWishes: (file) => liveEnrollmentApi.importWishes(file),
+  importExclusions: (file) => liveEnrollmentApi.importExclusions(file),
+  importCriteria: (file) => liveEnrollmentApi.importCriteria(file),
   createCandidate: (candidate) => liveEnrollmentApi.createCandidate(candidate),
   updateCandidate: (pk, candidate) => liveEnrollmentApi.updateCandidate(pk, candidate),
   createCombination: (combination) => liveEnrollmentApi.createCombination(combination),
