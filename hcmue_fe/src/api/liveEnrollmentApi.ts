@@ -142,6 +142,16 @@ type ImportSummary = {
   errors: Array<Record<string, unknown>>
 }
 
+type ImportJobStatus = {
+  id: string
+  status: 'pending' | 'processing' | 'done' | 'failed'
+  row_count: number
+  created: number
+  updated: number
+  skipped: number
+  errors: Array<Record<string, unknown>>
+}
+
 type CandidateRegionApiRow = {
   id?: string
   code: string
@@ -370,6 +380,17 @@ async function uploadImportFile(path: string, file: File): Promise<ImportSummary
   const form = new FormData()
   form.append('file', file)
   const raw = await apiPostFormData<unknown>(path, form)
+  if (raw && typeof raw === 'object' && 'job_id' in (raw as Record<string, unknown>)) {
+    const jobId = String((raw as { job_id: string }).job_id)
+    const finalStatus = await waitImportJobDone(jobId)
+    return {
+      success: finalStatus.status === 'done',
+      created: finalStatus.created ?? 0,
+      updated: finalStatus.updated ?? 0,
+      skipped: finalStatus.skipped ?? 0,
+      errors: Array.isArray(finalStatus.errors) ? finalStatus.errors : [],
+    }
+  }
   const data = (raw ?? {}) as Partial<ImportSummary>
   return {
     success: data.success ?? true,
@@ -378,6 +399,20 @@ async function uploadImportFile(path: string, file: File): Promise<ImportSummary
     skipped: data.skipped ?? 0,
     errors: Array.isArray(data.errors) ? data.errors : [],
   }
+}
+
+async function waitImportJobDone(jobId: string): Promise<ImportJobStatus> {
+  const maxAttempts = 300
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const raw = await apiGetJson<unknown>(`${enrollmentEndpoints.candidateImportBatchStatus}${jobId}/`)
+    const payload = unwrapDataPayload<ImportJobStatus>(raw)
+    if (payload.status === 'done' || payload.status === 'failed') {
+      return payload
+    }
+    // Poll every second; imports are heavy and can run for minutes.
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+  throw new Error('Import chạy quá lâu, vui lòng kiểm tra lại trạng thái job.')
 }
 
 /** Chỉ các route đã mount trong Django `core/urls.py`. */
@@ -389,15 +424,15 @@ export const liveEnrollmentApi = {
   getWishes: (): Promise<Wish[]> => fetchWishesFromBackend(),
   getExclusions: (): Promise<Exclusion[]> => fetchExclusionsFromBackend(),
   getCriteria: (): Promise<Criteria[]> => fetchCriteriaFromBackend(),
-  importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImport, file),
+  importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImportAsync, file),
   importCandidateScoresThpt: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidateScoresThptImport, file),
+    uploadImportFile(enrollmentEndpoints.candidateScoresThptImportAsync, file),
   importCandidateScoresHocBa: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidateScoresHocBaImport, file),
+    uploadImportFile(enrollmentEndpoints.candidateScoresHocBaImportAsync, file),
   importCandidateScoresNangLuc: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidateScoresNangLucImport, file),
+    uploadImportFile(enrollmentEndpoints.candidateScoresNangLucImportAsync, file),
   importCandidateScoresNangKhieu: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidateScoresNangKhieuImport, file),
+    uploadImportFile(enrollmentEndpoints.candidateScoresNangKhieuImportAsync, file),
   createCandidate: async (candidate: Candidate): Promise<Candidate & { _pk?: string }> => {
     const raw = await apiPostJson<unknown>(enrollmentEndpoints.candidates, mapCandidateFormToApiPayload(candidate))
     return mapCandidateApiToRow(unwrapDataPayload<CandidateApiRow>(raw))
@@ -413,21 +448,21 @@ export const liveEnrollmentApi = {
       unwrapDataPayload<CandidateRegionApiRow>(raw),
     ),
   importCandidateRegions: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidateRegionsImport, file),
+    uploadImportFile(enrollmentEndpoints.candidateRegionsImportAsync, file),
   getCandidatePriorityObjects: (): Promise<CandidatePriorityObjectApiRow[]> => fetchCandidatePriorityObjectsFromBackend(),
   createCandidatePriorityObject: (payload: { code: string; bonus_score: number }): Promise<CandidatePriorityObjectApiRow> =>
     apiPostJson<unknown>(enrollmentEndpoints.candidatePriorityObjects, payload).then((raw) =>
       unwrapDataPayload<CandidatePriorityObjectApiRow>(raw),
     ),
   importCandidatePriorityObjects: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.candidatePriorityObjectsImport, file),
+    uploadImportFile(enrollmentEndpoints.candidatePriorityObjectsImportAsync, file),
   importCombinations: (file: File): Promise<ImportSummary> =>
-    uploadImportFile(enrollmentEndpoints.combinationsImport, file),
-  importSubjects: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.subjectsImport, file),
-  importMajors: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.majorsImport, file),
-  importWishes: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.wishesImport, file),
-  importExclusions: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.exclusionsImport, file),
-  importCriteria: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.criteriaImport, file),
+    uploadImportFile(enrollmentEndpoints.combinationsImportAsync, file),
+  importSubjects: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.subjectsImportAsync, file),
+  importMajors: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.majorsImportAsync, file),
+  importWishes: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.wishesImportAsync, file),
+  importExclusions: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.exclusionsImportAsync, file),
+  importCriteria: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.criteriaImportAsync, file),
   createMajor: async (major: Major): Promise<Major & { _pk?: string }> => {
     const raw = await apiPostJson<unknown>(enrollmentEndpoints.majors, mapMajorFormToApiPayload(major, true))
     return mapMajorApiToRow(unwrapDataPayload<MajorApiRow>(raw))

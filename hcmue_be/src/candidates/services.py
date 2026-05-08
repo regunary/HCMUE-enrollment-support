@@ -152,7 +152,7 @@ class ImportSummary:
         }
 
 
-def import_regions(file_obj, user=None):
+def import_regions(file_obj, user=None, batch=None):
     """
     Import region master data from the KV/DiemUT Excel template.
 
@@ -169,7 +169,7 @@ def import_regions(file_obj, user=None):
 
     rows = _read_xlsx(file_obj)
     summary = ImportSummary()
-    batch = _create_batch(file_obj, user)
+    batch = batch or _create_batch(file_obj, user)
 
     headers, data_rows = _split_rows(rows)
     missing = REGION_HEADERS - set(headers)
@@ -209,7 +209,7 @@ def import_regions(file_obj, user=None):
     return summary.as_response()
 
 
-def import_priority_objects(file_obj, user=None):
+def import_priority_objects(file_obj, user=None, batch=None):
     """
     Import priority object master data from the DT/DiemUT Excel template.
 
@@ -226,7 +226,7 @@ def import_priority_objects(file_obj, user=None):
 
     rows = _read_xlsx(file_obj)
     summary = ImportSummary()
-    batch = _create_batch(file_obj, user)
+    batch = batch or _create_batch(file_obj, user)
 
     headers, data_rows = _split_rows(rows)
     missing = PRIORITY_OBJECT_HEADERS - set(headers)
@@ -266,7 +266,7 @@ def import_priority_objects(file_obj, user=None):
     return summary.as_response()
 
 
-def import_candidate_basic_info(file_obj, user=None):
+def import_candidate_basic_info(file_obj, user=None, batch=None):
     """
     Import candidate basic information from the ThongTinCoBan Excel template.
 
@@ -283,7 +283,7 @@ def import_candidate_basic_info(file_obj, user=None):
 
     rows = _read_xlsx(file_obj)
     summary = ImportSummary()
-    batch = _create_batch(file_obj, user)
+    batch = batch or _create_batch(file_obj, user)
 
     headers, data_rows = _split_rows(rows)
     if 'CCCD' not in headers:
@@ -309,7 +309,7 @@ def import_candidate_basic_info(file_obj, user=None):
     return summary.as_response()
 
 
-def import_candidate_scores(file_obj, score_type, column_subject_map, max_score, user=None):
+def import_candidate_scores(file_obj, score_type, column_subject_map, max_score, user=None, batch=None):
     """
     Import candidate subject scores from an Excel score template.
 
@@ -329,7 +329,7 @@ def import_candidate_scores(file_obj, score_type, column_subject_map, max_score,
 
     rows = _read_xlsx(file_obj)
     summary = ImportSummary()
-    batch = _create_batch(file_obj, user)
+    batch = batch or _create_batch(file_obj, user)
 
     headers, data_rows = _split_rows(rows)
     if 'CCCD' not in headers:
@@ -1091,6 +1091,22 @@ def _create_batch(file_obj, user):
         imported_by=user if getattr(user, 'is_authenticated', False) else None,
         status=ImportStatusChoices.PROCESSING,
     )
+
+
+def create_import_batch(file_obj, user):
+    """
+    Public wrapper used by async import endpoints to allocate a batch before background execution.
+    """
+    return _create_batch(file_obj, user)
+
+
+def fail_import_batch(batch, error_count=1):
+    """
+    Mark a running import batch as failed (used by async worker wrappers on hard failures).
+    """
+    batch.status = ImportStatusChoices.FAILED
+    batch.error_count = max(int(error_count), 1)
+    batch.save(update_fields=['status', 'error_count', 'update_date'])
 
 
 def _complete_batch(batch, summary):

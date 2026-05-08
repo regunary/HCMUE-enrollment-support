@@ -1,3 +1,6 @@
+from threading import Thread
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.generics import get_object_or_404
@@ -8,6 +11,8 @@ from auth.permissions import IsAdmin
 from src.candidates.models import Candidate, PriorityObject, Region
 from src.candidates.serializers import CandidateManualSerializer, ImportFileSerializer, PriorityObjectSerializer, RegionSerializer
 from src.candidates.services import (
+    create_import_batch,
+    fail_import_batch,
     APTITUDE_SCORE_COLUMNS,
     DGNL_SCORE_COLUMNS,
     HOCBA_SCORE_COLUMNS,
@@ -28,6 +33,7 @@ from src.candidates.services import (
     update_candidate_manually,
 )
 from core.choices import ScoreTypeChoices
+from src.imports.models import ImportBatch
 
 
 def validation_error_response(errors):
@@ -417,6 +423,36 @@ class RegionImportView(GenericAPIView):
         return Response(data)
 
 
+class RegionImportAsyncView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    @staticmethod
+    def _run_async_import(batch_id, file_name, file_bytes, user):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            import_regions(upload, user, batch=batch)
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(
+            target=self._run_async_import,
+            args=(batch.id, file_name, file_bytes, request.user if request.user.is_authenticated else None),
+            daemon=True,
+        ).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
+
+
 class PriorityObjectImportView(GenericAPIView):
     """
     Handle priority object master-data import requests.
@@ -454,6 +490,36 @@ class PriorityObjectImportView(GenericAPIView):
         return Response(data)
 
 
+class PriorityObjectImportAsyncView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    @staticmethod
+    def _run_async_import(batch_id, file_name, file_bytes, user):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            import_priority_objects(upload, user, batch=batch)
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(
+            target=self._run_async_import,
+            args=(batch.id, file_name, file_bytes, request.user if request.user.is_authenticated else None),
+            daemon=True,
+        ).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
+
+
 class CandidateImportView(GenericAPIView):
     """
     Handle candidate basic-information import requests.
@@ -468,6 +534,17 @@ class CandidateImportView(GenericAPIView):
     permission_classes = [IsAdmin]
     serializer_class = ImportFileSerializer
 
+    @staticmethod
+    def _run_async_import(batch_id, file_name, file_bytes, user):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            import_candidate_basic_info(upload, user, batch=batch)
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
     def post(self, request):
         """
         Validate the uploaded file and delegate import work to the candidate service.
@@ -481,14 +558,31 @@ class CandidateImportView(GenericAPIView):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
         try:
-            data = import_candidate_basic_info(serializer.validated_data['file'], request.user)
+            data = import_candidate_basic_info(upload, request.user)
         except ValueError:
             return Response(
                 {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(data)
+
+
+class CandidateImportAsyncView(CandidateImportView):
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(
+            target=self._run_async_import,
+            args=(batch.id, file_name, file_bytes, request.user if request.user.is_authenticated else None),
+            daemon=True,
+        ).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
 
 
 class CandidateScoreImportView(GenericAPIView):
@@ -508,6 +602,23 @@ class CandidateScoreImportView(GenericAPIView):
     column_subject_map = None
     max_score = 10
 
+    def _run_async_import(self, batch_id, file_name, file_bytes, user):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            import_candidate_scores(
+                upload,
+                self.score_type,
+                self.column_subject_map,
+                self.max_score,
+                user,
+                batch=batch,
+            )
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
     def post(self, request):
         """
         Validate the uploaded file and delegate score writes to the import service.
@@ -521,9 +632,10 @@ class CandidateScoreImportView(GenericAPIView):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
         try:
             data = import_candidate_scores(
-                serializer.validated_data['file'],
+                upload,
                 self.score_type,
                 self.column_subject_map,
                 self.max_score,
@@ -535,6 +647,48 @@ class CandidateScoreImportView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(data)
+
+
+class CandidateScoreImportAsyncView(CandidateScoreImportView):
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(
+            target=self._run_async_import,
+            args=(batch.id, file_name, file_bytes, request.user if request.user.is_authenticated else None),
+            daemon=True,
+        ).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
+
+
+class ImportBatchStatusView(GenericAPIView):
+    """
+    Poll import batch state for async import jobs.
+    """
+
+    permission_classes = [IsAdmin]
+
+    def get(self, request, pk):
+        batch = get_object_or_404(ImportBatch, pk=pk)
+        return Response(
+            {
+                'success': True,
+                'data': {
+                    'id': str(batch.id),
+                    'status': batch.status,
+                    'row_count': batch.row_count,
+                    'created': batch.created_count,
+                    'updated': batch.updated_count,
+                    'skipped': max(batch.row_count - batch.created_count - batch.updated_count - batch.error_count, 0),
+                    'errors': [] if batch.error_count == 0 else [{'code': 'IMPORT_FAILED', 'message': 'Import thất bại.'}],
+                    'error_count': batch.error_count,
+                },
+            }
+        )
 
 
 class CandidateThptScoreImportView(CandidateScoreImportView):
@@ -572,6 +726,30 @@ class CandidateHocBaScoreImportView(CandidateScoreImportView):
     Import high-school transcript scores from DiemHoBa.xlsx.
     """
 
+    score_type = ScoreTypeChoices.HOCBA
+    column_subject_map = HOCBA_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateThptScoreImportAsyncView(CandidateScoreImportAsyncView):
+    score_type = ScoreTypeChoices.THPT
+    column_subject_map = THPT_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateNangLucScoreImportAsyncView(CandidateScoreImportAsyncView):
+    score_type = ScoreTypeChoices.DGNL
+    column_subject_map = DGNL_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateNangKhieuScoreImportAsyncView(CandidateScoreImportAsyncView):
+    score_type = ScoreTypeChoices.CB
+    column_subject_map = APTITUDE_SCORE_COLUMNS
+    max_score = 10
+
+
+class CandidateHocBaScoreImportAsyncView(CandidateScoreImportAsyncView):
     score_type = ScoreTypeChoices.HOCBA
     column_subject_map = HOCBA_SCORE_COLUMNS
     max_score = 10

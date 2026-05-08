@@ -1,4 +1,7 @@
 from django.db import IntegrityError
+from threading import Thread
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.response import Response
@@ -18,11 +21,23 @@ from src.aspirations.services import (
     update_exclusion_manually,
     update_wish_manually,
 )
+from src.candidates.services import create_import_batch, fail_import_batch
+from src.imports.models import ImportBatch
+from core.choices import ImportStatusChoices
 from src.programs.views import validation_error_response
 
 
 def conflict_response(detail):
     return Response({'success': False, 'error': 'CONFLICT', 'detail': detail}, status=status.HTTP_409_CONFLICT)
+
+
+def complete_import_batch_from_summary(batch, summary):
+    batch.status = ImportStatusChoices.DONE
+    batch.row_count = int(summary.get('created', 0)) + int(summary.get('updated', 0)) + int(summary.get('skipped', 0)) + len(summary.get('errors', []))
+    batch.created_count = int(summary.get('created', 0))
+    batch.updated_count = int(summary.get('updated', 0))
+    batch.error_count = len(summary.get('errors', []))
+    batch.save(update_fields=['status', 'row_count', 'created_count', 'updated_count', 'error_count', 'update_date'])
 
 
 class WishListCreateView(GenericAPIView):
@@ -86,6 +101,33 @@ class WishImportView(GenericAPIView):
         return Response(data)
 
 
+class WishImportAsyncView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    @staticmethod
+    def _run_async_import(batch_id, file_name, file_bytes):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            summary = import_wishes(upload)
+            complete_import_batch_from_summary(batch, summary)
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(target=self._run_async_import, args=(batch.id, file_name, file_bytes), daemon=True).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
+
+
 class ExclusionListCreateView(GenericAPIView):
     permission_classes = [IsAdmin]
     serializer_class = ExclusionManualSerializer
@@ -145,3 +187,30 @@ class ExclusionImportView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(data)
+
+
+class ExclusionImportAsyncView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    @staticmethod
+    def _run_async_import(batch_id, file_name, file_bytes):
+        batch = ImportBatch.objects.get(pk=batch_id)
+        upload = SimpleUploadedFile(file_name, file_bytes)
+        try:
+            summary = import_exclusions(upload)
+            complete_import_batch_from_summary(batch, summary)
+        except ValueError:
+            fail_import_batch(batch)
+        except Exception:
+            fail_import_batch(batch)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        upload = serializer.validated_data['file']
+        batch = create_import_batch(upload, request.user)
+        file_name = upload.name
+        file_bytes = upload.read()
+        Thread(target=self._run_async_import, args=(batch.id, file_name, file_bytes), daemon=True).start()
+        return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
