@@ -1,6 +1,5 @@
-import base64
-
 from django.db import IntegrityError
+from django.core.files.storage import default_storage
 
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
@@ -30,8 +29,8 @@ def conflict_response(detail):
     return Response({'success': False, 'error': 'CONFLICT', 'detail': detail}, status=status.HTTP_409_CONFLICT)
 
 
-def encode_upload_for_task(upload):
-    return base64.b64encode(upload.read()).decode('ascii')
+def save_upload_for_task(upload, batch_id):
+    return default_storage.save(f'async-imports/{batch_id}/{upload.name}', upload)
 
 
 class WishListCreateView(GenericAPIView):
@@ -104,8 +103,7 @@ class WishImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_aspiration_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'wishes')
+        import_aspiration_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'wishes')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
 
 
@@ -179,6 +177,5 @@ class ExclusionImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_aspiration_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'exclusions')
+        import_aspiration_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'exclusions')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)

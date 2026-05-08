@@ -1,7 +1,5 @@
-import base64
-
 from celery import shared_task
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.storage import default_storage
 
 from core.choices import ImportStatusChoices
 from src.aspirations.services import import_exclusions, import_wishes
@@ -15,8 +13,13 @@ IMPORT_HANDLERS = {
 }
 
 
-def _upload_from_payload(file_name, file_payload):
-    return SimpleUploadedFile(file_name, base64.b64decode(file_payload.encode('ascii')))
+def _open_upload(storage_path):
+    return default_storage.open(storage_path, 'rb')
+
+
+def _delete_upload(storage_path):
+    if default_storage.exists(storage_path):
+        default_storage.delete(storage_path)
 
 
 def _complete_import_batch_from_summary(batch, summary):
@@ -29,13 +32,16 @@ def _complete_import_batch_from_summary(batch, summary):
 
 
 @shared_task(name='aspirations.import_data')
-def import_aspiration_data_task(batch_id, file_name, file_payload, import_kind):
+def import_aspiration_data_task(batch_id, storage_path, import_kind):
     batch = ImportBatch.objects.get(pk=batch_id)
     try:
-        summary = IMPORT_HANDLERS[import_kind](_upload_from_payload(file_name, file_payload))
+        with _open_upload(storage_path) as upload:
+            summary = IMPORT_HANDLERS[import_kind](upload)
         _complete_import_batch_from_summary(batch, summary)
     except (KeyError, ValueError):
         fail_import_batch(batch)
     except Exception:
         fail_import_batch(batch)
         raise
+    finally:
+        _delete_upload(storage_path)

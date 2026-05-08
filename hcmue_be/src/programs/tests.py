@@ -311,6 +311,26 @@ class MajorAndCriteriaApiTests(TestCase):
         self.assertEqual(entry.score_offset, 0.5)
         self.assertTrue(entry.is_primary)
 
+    def test_import_majors_accepts_ma_nganh_without_primary_column(self):
+        other_combination = SubjectCombination.objects.create(id='A01', name='A01')
+        file = make_xlsx(
+            ['MaNganh', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech'],
+            [
+                ['7140101', 'Su pham Toan', 'A00', 18, 0.5],
+                ['7140101', 'Su pham Toan', 'A01', 17, 0],
+            ],
+        )
+
+        response = self.client.post('/api/v1/majors/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 3)
+        major = Major.objects.get(id='7140101')
+        primary_entry = MajorCombination.objects.get(major=major, subject_combination=self.combination)
+        secondary_entry = MajorCombination.objects.get(major=major, subject_combination=other_combination)
+        self.assertTrue(primary_entry.is_primary)
+        self.assertFalse(secondary_entry.is_primary)
+
     def test_import_criteria_creates_condition_json_rule(self):
         major = Major.objects.create(id='7140101', name='Su pham Toan')
         MajorCombination.objects.create(major=major, subject_combination=self.combination, min_score=18, is_primary=True)

@@ -22,7 +22,8 @@ from src.programs.models import (
 
 REQUIRED_COMBINATION_HEADERS = {'MaTH', 'Mon1', 'Mon2', 'Mon3', 'TrongSo1', 'TrongSo2', 'TrongSo3'}
 REQUIRED_CRITERIA_HEADERS = {'MaXT', 'MaTH'}
-REQUIRED_MAJOR_HEADERS = {'MaXT', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech', 'Goc'}
+REQUIRED_MAJOR_HEADERS = {'TenNganh', 'MaTH', 'DiemSan', 'DiemLech'}
+MAJOR_ID_HEADERS = {'MaXT', 'MaNganh'}
 REQUIRED_SUBJECT_HEADERS = {'MaMon', 'TenMon'}
 LEGACY_COMBINATION_SUFFIXES = {
     '_HB': ScoreTypeChoices.HOCBA,
@@ -252,8 +253,13 @@ def import_majors(file_obj):
     summary = ImportSummary()
     headers, data_rows = _split_rows(rows)
     missing = REQUIRED_MAJOR_HEADERS - set(headers)
+    has_major_id_header = bool(MAJOR_ID_HEADERS & set(headers))
+    has_primary_header = 'Goc' in headers
     if missing:
         summary.errors.append(RowError(1, 'MISSING_REQUIRED_COLUMNS', f'Thiếu cột: {", ".join(sorted(missing))}'))
+        return summary.as_response()
+    if not has_major_id_header:
+        summary.errors.append(RowError(1, 'MISSING_REQUIRED_COLUMNS', 'Thieu cot: MaXT hoac MaNganh'))
         return summary.as_response()
 
     grouped_rows = {}
@@ -263,15 +269,15 @@ def import_majors(file_obj):
         if error:
             summary.errors.append(error)
             continue
-        grouped_rows.setdefault(_clean(values.get('MaXT')), []).append((row_number, values))
+        grouped_rows.setdefault(_major_id_from_values(values), []).append((row_number, values))
 
     for major_id, entries in grouped_rows.items():
-        primary_count = sum(1 for _row_number, values in entries if _to_bool(values.get('Goc')))
-        if primary_count != 1:
+        primary_count = sum(1 for _row_number, values in entries if _to_bool(values.get('Goc'))) if has_primary_header else 1
+        if has_primary_header and primary_count != 1:
             for row_number, _values in entries:
                 summary.errors.append(RowError(row_number, 'PRIMARY_COMBINATION_INVALID', 'Mỗi ngành phải có đúng một tổ hợp gốc', {'field': 'Goc', 'value': major_id}))
             continue
-        result = _upsert_major_group(major_id, entries)
+        result = _upsert_major_group(major_id, entries, has_primary_header)
         summary.created += result['created']
         summary.updated += result['updated']
         summary.skipped += result['skipped']
@@ -459,8 +465,12 @@ def _validate_subject_import_row(row_number, values):
     return None
 
 
+def _major_id_from_values(values):
+    return _clean(values.get('MaXT')) or _clean(values.get('MaNganh'))
+
+
 def _validate_major_import_row(row_number, values):
-    major_id = _clean(values.get('MaXT'))
+    major_id = _major_id_from_values(values)
     name = _clean(values.get('TenNganh'))
     combination_id = _clean(values.get('MaTH'))
     min_score = _to_decimal(values.get('DiemSan'))
@@ -478,12 +488,12 @@ def _validate_major_import_row(row_number, values):
         return RowError(row_number, 'MIN_SCORE_INVALID', 'DiemSan không hợp lệ', {'field': 'DiemSan', 'value': values.get('DiemSan')})
     if score_offset is None:
         return RowError(row_number, 'SCORE_OFFSET_INVALID', 'DiemLech không hợp lệ', {'field': 'DiemLech', 'value': values.get('DiemLech')})
-    if primary not in {'0', '1', 'true', 'false', 'True', 'False'}:
+    if primary and primary not in {'0', '1', 'true', 'false', 'True', 'False'}:
         return RowError(row_number, 'PRIMARY_INVALID', 'Goc chỉ nhận 0/1 hoặc true/false', {'field': 'Goc', 'value': primary})
     return None
 
 
-def _upsert_major_group(major_id, entries):
+def _upsert_major_group(major_id, entries, has_primary_header=True):
     counters = {'created': 0, 'updated': 0, 'skipped': 0}
     first_values = entries[0][1]
     name = _clean(first_values.get('TenNganh'))
@@ -502,12 +512,12 @@ def _upsert_major_group(major_id, entries):
         else:
             counters['skipped'] += 1
 
-        for _row_number, values in entries:
+        for index, (_row_number, values) in enumerate(entries):
             result = _upsert_major_combination(major, {
                 'combination_id': _clean(values.get('MaTH')),
                 'min_score': _to_decimal(values.get('DiemSan')),
                 'score_offset': _to_decimal(values.get('DiemLech')),
-                'is_primary': _to_bool(values.get('Goc')),
+                'is_primary': _to_bool(values.get('Goc')) if has_primary_header else index == 0,
             })
             counters[result] += 1
     return counters

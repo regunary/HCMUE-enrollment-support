@@ -1,8 +1,7 @@
-import base64
-
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.response import Response
+from django.core.files.storage import default_storage
 from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
@@ -40,8 +39,8 @@ from src.candidates.services import create_import_batch
 from src.programs.tasks import import_program_master_data_task
 
 
-def encode_upload_for_task(upload):
-    return base64.b64encode(upload.read()).decode('ascii')
+def save_upload_for_task(upload, batch_id):
+    return default_storage.save(f'async-imports/{batch_id}/{upload.name}', upload)
 
 
 def validation_error_response(errors):
@@ -386,8 +385,7 @@ class CombinationImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_program_master_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'combinations')
+        import_program_master_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'combinations')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
 
 
@@ -437,8 +435,7 @@ class SubjectImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_program_master_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'subjects')
+        import_program_master_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'subjects')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
 
 
@@ -510,8 +507,7 @@ class MajorImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_program_master_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'majors')
+        import_program_master_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'majors')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
 
 
@@ -581,6 +577,5 @@ class CriteriaImportAsyncView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data['file']
         batch = create_import_batch(upload, request.user)
-        file_name = upload.name
-        import_program_master_data_task.delay(str(batch.id), file_name, encode_upload_for_task(upload), 'criteria')
+        import_program_master_data_task.delay(str(batch.id), save_upload_for_task(upload, batch.id), 'criteria')
         return Response({'success': True, 'job_id': str(batch.id), 'status': batch.status}, status=status.HTTP_202_ACCEPTED)
