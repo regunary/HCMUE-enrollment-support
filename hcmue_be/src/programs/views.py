@@ -4,18 +4,34 @@ from rest_framework.response import Response
 from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
-from src.programs.models import Subject, SubjectCombination
-from src.programs.serializers import CombinationManualSerializer, ImportFileSerializer, SubjectSerializer
+from src.programs.models import AdmissionCondition, Major, Subject, SubjectCombination
+from src.programs.serializers import (
+    AdmissionConditionManualSerializer,
+    CombinationManualSerializer,
+    ImportFileSerializer,
+    MajorManualSerializer,
+    SubjectSerializer,
+)
 from src.programs.services import (
+    create_admission_condition_manually,
     create_combination_manually,
+    create_major_manually,
     create_subject_manually,
+    delete_admission_condition_manually,
     delete_combination_manually,
+    delete_major_manually,
     delete_subject_manually,
+    import_admission_conditions,
     import_combinations,
+    import_majors,
     import_subjects,
+    serialize_admission_condition,
     serialize_combination,
+    serialize_major,
     serialize_subject,
+    update_admission_condition_manually,
     update_combination_manually,
+    update_major_manually,
     update_subject_manually,
 )
 
@@ -382,6 +398,122 @@ class SubjectImportView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             data = import_subjects(serializer.validated_data['file'])
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(data)
+
+
+class MajorListCreateView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = MajorManualSerializer
+
+    def get(self, request):
+        majors = Major.objects.prefetch_related('combinations').all().order_by('id')
+        return Response({'success': True, 'results': [serialize_major(major) for major in majors]})
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(create_major_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
+
+
+class MajorDetailView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = MajorManualSerializer
+
+    def get_object(self, pk):
+        return get_object_or_404(Major.objects.all(), pk=pk)
+
+    def get(self, request, pk):
+        return Response({'success': True, 'data': serialize_major(self.get_object(pk))})
+
+    def patch(self, request, pk):
+        major = self.get_object(pk)
+        serializer = self.get_serializer(data=request.data, partial=True, context={'major': major})
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(update_major_manually(major, serializer.validated_data))
+
+    def delete(self, request, pk):
+        try:
+            return Response(delete_major_manually(self.get_object(pk)))
+        except ProtectedError:
+            return Response(
+                {'success': False, 'error': 'DELETE_PROTECTED', 'detail': 'Dữ liệu đang được tham chiếu, không thể xoá.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+
+class MajorImportView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = import_majors(serializer.validated_data['file'])
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(data)
+
+
+class CriteriaListCreateView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdmissionConditionManualSerializer
+
+    def get(self, request):
+        conditions = AdmissionCondition.objects.select_related('major_combination').all().order_by(
+            'major_combination__major_id',
+            'major_combination__subject_combination_id',
+            'id',
+        )
+        return Response({'success': True, 'results': [serialize_admission_condition(condition) for condition in conditions]})
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(create_admission_condition_manually(serializer.validated_data), status=status.HTTP_201_CREATED)
+
+
+class CriteriaDetailView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = AdmissionConditionManualSerializer
+
+    def get_object(self, pk):
+        return get_object_or_404(AdmissionCondition.objects.all(), pk=pk)
+
+    def get(self, request, pk):
+        return Response({'success': True, 'data': serialize_admission_condition(self.get_object(pk))})
+
+    def patch(self, request, pk):
+        condition = self.get_object(pk)
+        serializer = self.get_serializer(data=request.data, partial=True, context={'condition': condition})
+        if not serializer.is_valid():
+            return validation_error_response(serializer.errors)
+        return Response(update_admission_condition_manually(condition, serializer.validated_data))
+
+    def delete(self, request, pk):
+        return Response(delete_admission_condition_manually(self.get_object(pk)))
+
+
+class CriteriaImportView(GenericAPIView):
+    permission_classes = [IsAdmin]
+    serializer_class = ImportFileSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            data = import_admission_conditions(serializer.validated_data['file'])
         except ValueError:
             return Response(
                 {'success': False, 'error': 'FILE_INVALID', 'detail': 'Không nhận ra loại file hoặc header không hợp lệ.'},

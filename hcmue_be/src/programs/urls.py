@@ -17,3 +17,19 @@ subject_urlpatterns = [
     path('import/', views.SubjectImportView.as_view(), name='subject-import'),
     path('<str:pk>/', views.SubjectDetailView.as_view(), name='subject-detail'),
 ]
+
+
+# Major routes are mounted under /api/v1/majors/ in core.urls.
+major_urlpatterns = [
+    path('', views.MajorListCreateView.as_view(), name='majors'),
+    path('import/', views.MajorImportView.as_view(), name='major-import'),
+    path('<str:pk>/', views.MajorDetailView.as_view(), name='major-detail'),
+]
+
+
+# Criteria routes are mounted under /api/v1/criteria/ in core.urls.
+criteria_urlpatterns = [
+    path('', views.CriteriaListCreateView.as_view(), name='criteria'),
+    path('import/', views.CriteriaImportView.as_view(), name='criteria-import'),
+    path('<int:pk>/', views.CriteriaDetailView.as_view(), name='criteria-detail'),
+]

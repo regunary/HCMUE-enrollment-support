@@ -17,7 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from src.programs.urls import subject_urlpatterns
+from src.aspirations.urls import exclusion_urlpatterns, wish_urlpatterns
+from src.programs.urls import criteria_urlpatterns, major_urlpatterns, subject_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,4 +28,8 @@ urlpatterns = [
     path('api/v1/candidates/', include('candidates.urls')),
     path('api/v1/combinations/', include('src.programs.urls')),
     path('api/v1/subjects/', include(subject_urlpatterns)),
+    path('api/v1/majors/', include(major_urlpatterns)),
+    path('api/v1/wishes/', include(wish_urlpatterns)),
+    path('api/v1/exclusions/', include(exclusion_urlpatterns)),
+    path('api/v1/criteria/', include(criteria_urlpatterns)),
 ]

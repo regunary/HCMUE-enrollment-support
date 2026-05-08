@@ -9,7 +9,16 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.choices import ActionsChoices, RoleChoices, ScoreTypeChoices
-from src.programs.models import CombinationSubject, Subject, SubjectCombination, SubjectCombinationLog, SubjectLog
+from src.programs.models import (
+    AdmissionCondition,
+    CombinationSubject,
+    Major,
+    MajorCombination,
+    Subject,
+    SubjectCombination,
+    SubjectCombinationLog,
+    SubjectLog,
+)
 
 
 def make_xlsx(headers, rows):
@@ -270,3 +279,50 @@ class CombinationApiTests(TestCase):
         self.assertFalse(SubjectCombination.objects.filter(id=combination.id).exists())
         log = SubjectCombinationLog.objects.get(name='Toán Lí Hóa', action=ActionsChoices.DELETE)
         self.assertIsNone(log.subject_combination_id)
+
+
+class MajorAndCriteriaApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='major-admin',
+            password='password123',
+            fullname='Major Admin',
+            role=RoleChoices.ADMIN,
+        )
+        self.client.force_authenticate(self.user)
+        self.subject = Subject.objects.create(id='TO', name='Toan')
+        self.combination = SubjectCombination.objects.create(id='A00', name='A00')
+
+    def test_import_majors_creates_major_combinations(self):
+        file = make_xlsx(
+            ['MaXT', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech', 'Goc'],
+            [['7140101', 'Su pham Toan', 'A00', 18, 0.5, 1]],
+        )
+
+        response = self.client.post('/api/v1/majors/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        major = Major.objects.get(id='7140101')
+        entry = MajorCombination.objects.get(major=major, subject_combination=self.combination)
+        self.assertEqual(major.name, 'Su pham Toan')
+        self.assertEqual(entry.min_score, 18)
+        self.assertEqual(entry.score_offset, 0.5)
+        self.assertTrue(entry.is_primary)
+
+    def test_import_criteria_creates_condition_json_rule(self):
+        major = Major.objects.create(id='7140101', name='Su pham Toan')
+        MajorCombination.objects.create(major=major, subject_combination=self.combination, min_score=18, is_primary=True)
+        file = make_xlsx(
+            ['MaXT', 'MaTH', 'MaMon', 'DiemMonToiThieu', 'DiemTongToiThieu', 'GhiChu', 'DieuKienJson'],
+            [['7140101', 'A00', 'TO', 6.5, 18, 'Dieu kien mon chinh', '{"main_subject":"TO"}']],
+        )
+
+        response = self.client.post('/api/v1/criteria/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 1)
+        condition = AdmissionCondition.objects.get()
+        self.assertEqual(condition.subject_id, 'TO')
+        self.assertEqual(condition.condition_json, {'main_subject': 'TO'})
