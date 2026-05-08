@@ -34,6 +34,12 @@ export function SubjectsPage() {
     return rows.map((row, index) => (index === selectedRowIndex ? payload : row))
   }
 
+  const deleteSubjects = async (selectedRows: RowModel[], rows: RowModel[]): Promise<RowModel[]> => {
+    await Promise.all(selectedRows.map((row) => enrollmentApi.deleteSubject?.(String(row.id))))
+    const selected = new Set(selectedRows)
+    return rows.filter((row) => !selected.has(row))
+  }
+
   return (
     <ImportEntityPage
       title="Nhập môn học"
@@ -43,6 +49,7 @@ export function SubjectsPage() {
       getRows={enrollmentApi.getSubjects}
       importFile={enrollmentApi.importSubjects}
       saveRow={saveSubject}
+      deleteRows={enrollmentApi.deleteSubject ? deleteSubjects : undefined}
       sampleRows={[
         { MaMon: 'TO', TenMon: 'Toán' },
         { MaMon: 'VA', TenMon: 'Ngữ văn' },

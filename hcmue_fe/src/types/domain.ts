@@ -27,6 +27,9 @@ export type Major = {
   code: string
   name: string
   combinations: string
+  minScores: string
+  scoreOffsets: string
+  primaryCombination: string
 }
 
 export type Wish = {

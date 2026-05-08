@@ -11,6 +11,9 @@ const MAJOR_FIELDS: ImportFieldDef[] = [
   { key: 'code', label: 'Mã ngành', kind: 'text' },
   { key: 'name', label: 'Tên ngành', kind: 'text' },
   { key: 'combinations', label: 'Tổ hợp xét tuyển', kind: 'text' },
+  { key: 'minScores', label: 'Điểm sàn theo tổ hợp', kind: 'text' },
+  { key: 'scoreOffsets', label: 'Độ lệch theo tổ hợp', kind: 'text' },
+  { key: 'primaryCombination', label: 'Tổ hợp gốc', kind: 'text' },
 ]
 
 export function MajorsPage() {

@@ -64,11 +64,15 @@ type CriteriaApiRow = {
 }
 
 function mapMajorApiToRow(row: MajorApiRow): Major & { _pk?: string } {
+  const combinations = row.combinations ?? []
   return {
     ...majorSchema.parse({
       code: row.id,
       name: row.name,
-      combinations: (row.combinations ?? []).map((item) => item.combination_id).join(','),
+      combinations: combinations.map((item) => item.combination_id).join(','),
+      minScores: combinations.map((item) => String(item.min_score ?? 0)).join(','),
+      scoreOffsets: combinations.map((item) => String(item.score_offset ?? 0)).join(','),
+      primaryCombination: combinations.find((item) => item.is_primary)?.combination_id ?? combinations[0]?.combination_id ?? '',
     }),
     _pk: row.id,
   }
@@ -79,14 +83,17 @@ function mapMajorFormToApiPayload(major: Major, includeId: boolean): MajorApiPay
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+  const minScores = major.minScores.split(',').map((item) => Number(item.trim()))
+  const scoreOffsets = major.scoreOffsets.split(',').map((item) => Number(item.trim()))
+  const primaryCombination = major.primaryCombination.trim()
   return {
     ...(includeId ? { id: major.code } : {}),
     name: major.name,
     combinations: combinations.map((combinationId, index) => ({
       combination_id: combinationId,
-      min_score: 0,
-      score_offset: 0,
-      is_primary: index === 0,
+      min_score: minScores[index] ?? 0,
+      score_offset: scoreOffsets[index] ?? 0,
+      is_primary: combinationId === primaryCombination,
     })),
   }
 }
@@ -399,6 +406,7 @@ export const liveEnrollmentApi = {
     const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.candidates}${pk}/`, mapCandidateFormToApiPayload(candidate))
     return mapCandidateApiToRow(unwrapDataPayload<CandidateApiRow>(raw))
   },
+  deleteCandidate: (pk: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.candidates}${pk}/`),
   getCandidateRegions: (): Promise<CandidateRegionApiRow[]> => fetchCandidateRegionsFromBackend(),
   createCandidateRegion: (payload: { code: string; bonus_score: number }): Promise<CandidateRegionApiRow> =>
     apiPostJson<unknown>(enrollmentEndpoints.candidateRegions, payload).then((raw) =>
@@ -425,7 +433,7 @@ export const liveEnrollmentApi = {
     return mapMajorApiToRow(unwrapDataPayload<MajorApiRow>(raw))
   },
   updateMajor: async (code: string, major: Major): Promise<Major & { _pk?: string }> => {
-    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.majors}${code}/`, { name: major.name })
+    const raw = await apiPatchJson<unknown>(`${enrollmentEndpoints.majors}${code}/`, mapMajorFormToApiPayload(major, false))
     return mapMajorApiToRow(unwrapDataPayload<MajorApiRow>(raw))
   },
   deleteMajor: (code: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.majors}${code}/`),
@@ -460,6 +468,7 @@ export const liveEnrollmentApi = {
     apiPostJson<unknown>(enrollmentEndpoints.subjects, payload).then((raw) => unwrapDataPayload<Subject>(raw)),
   updateSubject: (id: string, payload: Subject): Promise<Subject> =>
     apiPatchJson<unknown>(`${enrollmentEndpoints.subjects}${id}/`, payload).then((raw) => unwrapDataPayload<Subject>(raw)),
+  deleteSubject: (id: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.subjects}${id}/`),
   createCombination: async (combination: Combination): Promise<Combination> => {
     const raw = await apiPostJson<unknown>(
       enrollmentEndpoints.combinations,
@@ -484,4 +493,5 @@ export const liveEnrollmentApi = {
       weights: (data.subjects ?? []).map((item) => String(item.weight)).join(','),
     })
   },
+  deleteCombination: (code: string): Promise<unknown> => apiDeleteJson<unknown>(`${enrollmentEndpoints.combinations}${code}/`),
 }

@@ -78,6 +78,41 @@ export const majorSchema = z.object({
   code: z.string().min(1, 'Mã ngành không được để trống.'),
   name: z.string().min(1, 'Tên ngành không được để trống.'),
   combinations: z.string().min(1, 'Tổ hợp xét tuyển không được để trống.'),
+  minScores: z.string().min(1, 'Điểm sàn theo tổ hợp không được để trống.'),
+  scoreOffsets: z.string().min(1, 'Độ lệch theo tổ hợp không được để trống.'),
+  primaryCombination: z.string().min(1, 'Tổ hợp gốc không được để trống.'),
+}).superRefine((data, ctx) => {
+  const combinations = data.combinations.split(',').map((item) => item.trim()).filter(Boolean)
+  const minScores = data.minScores.split(',').map((item) => item.trim()).filter(Boolean)
+  const scoreOffsets = data.scoreOffsets.split(',').map((item) => item.trim()).filter(Boolean)
+  if (minScores.length !== combinations.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Số lượng điểm sàn phải khớp số lượng tổ hợp.',
+      path: ['minScores'],
+    })
+  }
+  if (scoreOffsets.length !== combinations.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Số lượng độ lệch phải khớp số lượng tổ hợp.',
+      path: ['scoreOffsets'],
+    })
+  }
+  if (![...minScores, ...scoreOffsets].every((item) => Number.isFinite(Number(item)))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Điểm sàn và độ lệch phải là số.',
+      path: ['minScores'],
+    })
+  }
+  if (!combinations.includes(data.primaryCombination.trim())) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Tổ hợp gốc phải nằm trong danh sách tổ hợp.',
+      path: ['primaryCombination'],
+    })
+  }
 })
 
 export const wishSchema = z.object({

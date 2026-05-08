@@ -140,6 +140,12 @@ export function CandidatesPage() {
     return rows.map((row, index) => (index === selectedRowIndex ? payload : row))
   }
 
+  const deleteCandidates = async (selectedRows: RowModel[], rows: RowModel[]): Promise<RowModel[]> => {
+    await Promise.all(selectedRows.map((row) => enrollmentApi.deleteCandidate?.(String(row._pk))))
+    const selected = new Set(selectedRows)
+    return rows.filter((row) => !selected.has(row))
+  }
+
   return (
     <>
       <Card title="Import điểm theo nhóm">
@@ -296,6 +302,7 @@ export function CandidatesPage() {
         }}
         importFile={enrollmentApi.importCandidates}
         saveRow={saveCandidate}
+        deleteRows={enrollmentApi.deleteCandidate ? deleteCandidates : undefined}
         selectOptionsByField={candidateSelectOptions}
         onDraftChange={onCandidateDraftChange}
         listRefreshToken={candidateListVersion}

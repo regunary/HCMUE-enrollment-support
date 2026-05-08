@@ -59,6 +59,12 @@ export function CombinationsPage() {
     return rows.map((row, index) => (index === selectedRowIndex ? payload : row))
   }
 
+  const deleteCombinations = async (selectedRows: RowModel[], rows: RowModel[]): Promise<RowModel[]> => {
+    await Promise.all(selectedRows.map((row) => enrollmentApi.deleteCombination?.(String(row.code))))
+    const selected = new Set(selectedRows)
+    return rows.filter((row) => !selected.has(row))
+  }
+
   return (
     <ImportEntityPage
       title="Nhập tổ hợp xét tuyển"
@@ -68,6 +74,7 @@ export function CombinationsPage() {
       getRows={enrollmentApi.getCombinations}
       importFile={enrollmentApi.importCombinations}
       saveRow={saveCombination}
+      deleteRows={enrollmentApi.deleteCombination ? deleteCombinations : undefined}
       combinationSubjectOptions={subjectOptions}
       sampleRows={[
         {
