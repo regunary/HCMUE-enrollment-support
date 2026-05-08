@@ -299,7 +299,7 @@ Validation error `400`:
   - Thông tin cơ bản: `KV, DT, NamTN, HocLuc12, DiemTN`
   - Điểm thi THPT: `TO, VA, LI, HO, SI, SU, DI, GDCD, GDKTPL, TI, CNNN, CNCN, N1, N2, N3, N4, N5, N6, N7`
   - Điểm thi ĐG Năng lực: `TO_NL, VA_NL, LI_NL, HO_NL, SI_NL, TA_NL`
-  - Điểm thi Năng khiếu: `NK2, NK3, NK4, NK5`
+  - Điểm thi Năng khiếu: `NK2, NK3, NK4, NK5, NK6`
   - ĐIểm Học bạ: `TO_HB, VA_HB, LI_HB, HO_HB, SI_HB, SU_HB, DI_HB, TA_HB, TI_HB, CNNN_HB, CNCN_HB, GDCD_HB, GDKTPL_HB`
 - Rule:
   - Merge theo `CCCD`, ô trống không ghi đè `null`.
@@ -387,7 +387,7 @@ Response `200`: cùng shape với import điểm THPT.
 ### post: `/api/v1/candidates/scores/nang-khieu/import/`
 - Mô tả: Import điểm thi năng khiếu theo `CCCD`.
 - Required columns: `CCCD`
-- Score columns: `NK2, NK3, NK4, NK5`
+- Score columns: `NK2, NK3, NK4, NK5, NK6`
 - Rule:
   - Map `CCCD` tới thí sinh đã tồn tại.
   - Ghi vào `ScoreBoard.score_type = CB`.
@@ -572,7 +572,7 @@ Suggested initial subject codes:
 - `TO, VA, LI, HO, SI, SU, DI, GDCD, GDKTPL, TI, CNNN, CNCN`
 - `N1, N2, N3, N4, N5, N6, N7`
 - `TA`
-- `NK2, NK3, NK4, NK5`
+- `NK2, NK3, NK4, NK5, NK6`
 
 ---
 
@@ -693,6 +693,7 @@ Validation error `400`:
 - Rule:
   - Import Excel dùng format cũ, mỗi dòng có đúng 3 môn.
   - `score_type` của các môn import mặc định là `THPT`.
+  - Mã môn legacy có suffix được tách thành `subject_id` + `score_type`: `*_HB -> HOCBA`, `*_NL -> DGNL`, `NK* -> CB`.
   - Import merge theo `MaTH`; nếu tổ hợp đã tồn tại thì replace danh sách môn theo file.
 - Error codes:
   - `FILE_INVALID`
