@@ -74,6 +74,19 @@ def scores_for_major_combination(major_combination):
         major=major_combination.major,
         candidate__is_deleted=False,
     ).values_list('candidate_id', flat=True)
+    return _scores_for_major_combination_candidates(major_combination, candidate_ids)
+
+
+def scores_for_major_combination_rank(major_combination, rank):
+    candidate_ids = Aspiration.objects.filter(
+        major=major_combination.major,
+        rank=rank,
+        candidate__is_deleted=False,
+    ).values_list('candidate_id', flat=True)
+    return _scores_for_major_combination_candidates(major_combination, candidate_ids)
+
+
+def _scores_for_major_combination_candidates(major_combination, candidate_ids):
     candidates = Candidate.objects.filter(id__in=candidate_ids).select_related('region_priority').prefetch_related(
         'score_boards__scores',
     )
@@ -158,7 +171,9 @@ def build_percentile_tables(round_number=1, percentiles=None):
         'round': round_number,
         'percentiles': [int(percentile) for percentile in percentiles],
         'all': _build_all_table(snapshots, percentiles),
+        'wishes': _build_wish_tables(percentiles),
         'majors': _build_major_tables(snapshots, percentiles),
+        'combinations': _build_combination_tables(snapshots, percentiles),
     }
 
 
@@ -181,6 +196,66 @@ def _build_all_table(snapshots, percentiles):
             values[column['key']] = _format_score(percentile_score)
         rows.append({'percentile': int(percentile), 'label': f'P{int(percentile)}', 'values': values})
     return {'title': 'Tất cả ngành', 'columns': columns, 'rows': rows}
+
+
+def _build_wish_tables(percentiles):
+    major_combinations = list(MajorCombination.objects.select_related('major', 'subject_combination').prefetch_related(
+        'subject_combination__subjects',
+    ).order_by('subject_combination_id', 'major_id', 'id'))
+    major_combinations_by_major = {}
+    for major_combination in major_combinations:
+        major_combinations_by_major.setdefault(major_combination.major_id, []).append(major_combination)
+
+    aspirations = list(
+        Aspiration.objects.filter(candidate__is_deleted=False).order_by('rank', 'major_id').values(
+            'candidate_id',
+            'major_id',
+            'rank',
+        )
+    )
+    candidate_ids = {aspiration['candidate_id'] for aspiration in aspirations}
+    candidates_by_id = {
+        candidate.id: candidate
+        for candidate in Candidate.objects.filter(id__in=candidate_ids).select_related('region_priority').prefetch_related(
+            'score_boards__scores',
+        )
+    }
+
+    scores_by_rank = {}
+    for aspiration in aspirations:
+        candidate = candidates_by_id.get(aspiration['candidate_id'])
+        if candidate is None:
+            continue
+        for major_combination in major_combinations_by_major.get(aspiration['major_id'], []):
+            score = calculate_candidate_score_for_major_combination(candidate, major_combination)
+            if score is None:
+                continue
+            combination_id = major_combination.subject_combination_id
+            scores_by_rank.setdefault(aspiration['rank'], {}).setdefault(combination_id, []).append(score)
+
+    tables = []
+    for rank in sorted(scores_by_rank):
+        by_combination = scores_by_rank[rank]
+        if not by_combination:
+            continue
+        columns = [
+            {'key': combination_id, 'combination_id': combination_id, 'label': combination_id}
+            for combination_id in sorted(by_combination)
+        ]
+        rows = []
+        for percentile in percentiles:
+            values = {
+                column['key']: _format_score(calculate_percentile(by_combination[column['key']], percentile))
+                for column in columns
+            }
+            rows.append({'percentile': int(percentile), 'label': f'P{int(percentile)}', 'values': values})
+        tables.append({
+            'rank': rank,
+            'title': f'Nguyện vọng {rank}',
+            'columns': columns,
+            'rows': rows,
+        })
+    return tables
 
 
 def _build_major_tables(snapshots, percentiles):
@@ -218,6 +293,44 @@ def _build_major_tables(snapshots, percentiles):
             'rows': rows,
         })
     return sorted(tables, key=lambda table: table['major_id'])
+
+
+def _build_combination_tables(snapshots, percentiles):
+    tables_by_combination = {}
+    for snapshot in snapshots:
+        combination = snapshot.major_combination.subject_combination
+        table = tables_by_combination.setdefault(combination.id, {
+            'combination_id': combination.id,
+            'combination_name': combination.name,
+            'title': combination.name or combination.id,
+            'columns_by_key': {},
+            'values': {},
+        })
+        column_key = str(snapshot.major_combination_id)
+        table['columns_by_key'].setdefault(column_key, {
+            'key': column_key,
+            'major_combination_id': snapshot.major_combination_id,
+            'major_id': snapshot.major_combination.major_id,
+            'combination_id': combination.id,
+            'label': snapshot.major_combination.major_id,
+        })
+        table['values'].setdefault(snapshot.percentile, {})[column_key] = _format_score(snapshot.score)
+
+    tables = []
+    for table in tables_by_combination.values():
+        columns = sorted(table['columns_by_key'].values(), key=lambda column: (column['major_id'], column['major_combination_id']))
+        rows = []
+        for percentile in percentiles:
+            row_values = {column['key']: table['values'].get(percentile, {}).get(column['key']) for column in columns}
+            rows.append({'percentile': int(percentile), 'label': f'P{int(percentile)}', 'values': row_values})
+        tables.append({
+            'combination_id': table['combination_id'],
+            'combination_name': table['combination_name'],
+            'title': table['title'],
+            'columns': columns,
+            'rows': rows,
+        })
+    return sorted(tables, key=lambda table: table['combination_id'])
 
 
 def _format_score(score):
