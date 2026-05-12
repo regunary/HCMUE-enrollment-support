@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.choices import ActionsChoices, RoleChoices, ScoreTypeChoices
+from src.imports.models import ImportBatch
 from src.programs.models import (
     AdmissionCondition,
     CombinationSubject,
@@ -19,6 +20,7 @@ from src.programs.models import (
     SubjectCombinationLog,
     SubjectLog,
 )
+from src.programs.tasks import _complete_import_batch_from_summary
 
 
 def make_xlsx(headers, rows):
@@ -330,6 +332,35 @@ class MajorAndCriteriaApiTests(TestCase):
         secondary_entry = MajorCombination.objects.get(major=major, subject_combination=other_combination)
         self.assertTrue(primary_entry.is_primary)
         self.assertFalse(secondary_entry.is_primary)
+
+    def test_import_majors_rejects_major_code_longer_than_model_limit(self):
+        file = make_xlsx(
+            ['MaXT', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech', 'Goc'],
+            [['71401010000', 'Su pham Toan', 'A00', 18, 0.5, 1]],
+        )
+
+        response = self.client.post('/api/v1/majors/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 0)
+        self.assertEqual(response.data['errors'][0]['code'], 'MAJOR_CODE_TOO_LONG')
+        self.assertEqual(Major.objects.count(), 0)
+
+    def test_program_async_batch_status_persists_row_errors(self):
+        batch = ImportBatch.objects.create(file_name='majors.xlsx', imported_by=self.user)
+        summary = {
+            'success': False,
+            'created': 0,
+            'updated': 0,
+            'skipped': 0,
+            'errors': [{'row': 2, 'code': 'MAJOR_CODE_TOO_LONG', 'message': 'MaXT tối đa 10 ký tự'}],
+        }
+
+        _complete_import_batch_from_summary(batch, summary)
+
+        batch.refresh_from_db()
+        self.assertEqual(batch.error_count, 1)
+        self.assertEqual(batch.error_details, summary['errors'])
 
     def test_import_criteria_creates_condition_json_rule(self):
         major = Major.objects.create(id='7140101', name='Su pham Toan')

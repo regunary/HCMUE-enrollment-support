@@ -476,10 +476,26 @@ def _validate_major_import_row(row_number, values):
     min_score = _to_decimal(values.get('DiemSan'))
     score_offset = _to_decimal(values.get('DiemLech'))
     primary = _clean(values.get('Goc'))
+    major_id_max_length = Major._meta.get_field('id').max_length
+    major_name_max_length = Major._meta.get_field('name').max_length
     if not major_id:
         return RowError(row_number, 'MAJOR_REQUIRED', 'MaXT là bắt buộc', {'field': 'MaXT', 'value': major_id})
+    if len(major_id) > major_id_max_length:
+        return RowError(
+            row_number,
+            'MAJOR_CODE_TOO_LONG',
+            f'MaXT tối đa {major_id_max_length} ký tự',
+            {'field': 'MaXT', 'value': major_id, 'max_length': major_id_max_length},
+        )
     if not name:
         return RowError(row_number, 'MAJOR_NAME_REQUIRED', 'TenNganh là bắt buộc', {'field': 'TenNganh', 'value': name})
+    if len(name) > major_name_max_length:
+        return RowError(
+            row_number,
+            'MAJOR_NAME_TOO_LONG',
+            f'TenNganh tối đa {major_name_max_length} ký tự',
+            {'field': 'TenNganh', 'value': name, 'max_length': major_name_max_length},
+        )
     if not combination_id:
         return RowError(row_number, 'COMBINATION_REQUIRED', 'MaTH là bắt buộc', {'field': 'MaTH', 'value': combination_id})
     if not SubjectCombination.objects.filter(id=combination_id).exists():
