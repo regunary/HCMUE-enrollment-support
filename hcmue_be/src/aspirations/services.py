@@ -8,14 +8,16 @@ from src.programs.models import Major
 
 
 REQUIRED_EXCLUSION_HEADERS = {'CCCD', 'LyDo'}
-REQUIRED_WISH_HEADERS = {'CCCD', 'MaXT', 'TTNV'}
+REQUIRED_WISH_HEADERS = {'CCCD'}
+WISH_MAJOR_HEADERS = {'MaXT', 'MaNganh'}
+WISH_RANK_HEADERS = {'TTNV', 'ThuTuNV'}
 
 
 def import_wishes(file_obj):
     rows = _read_xlsx(file_obj)
     summary = ImportSummary()
     headers, data_rows = _split_rows(rows)
-    missing = REQUIRED_WISH_HEADERS - set(headers)
+    missing = _missing_wish_headers(headers)
     if missing:
         summary.errors.append(RowError(1, 'MISSING_REQUIRED_COLUMNS', f'Thiếu cột: {", ".join(sorted(missing))}'))
         return summary.as_response()
@@ -29,8 +31,8 @@ def import_wishes(file_obj):
         if error:
             summary.errors.append(error)
             continue
-        key_rank = (_clean_cccd(values.get('CCCD')), _to_int(values.get('TTNV')))
-        key_major = (_clean_cccd(values.get('CCCD')), _clean(values.get('MaXT')))
+        key_rank = (_clean_cccd(values.get('CCCD')), _wish_rank_from_values(values))
+        key_major = (_clean_cccd(values.get('CCCD')), _wish_major_id_from_values(values))
         if key_rank in seen_rank:
             summary.errors.append(RowError(row_number, 'RANK_DUPLICATE', 'Trùng thứ tự nguyện vọng của thí sinh', {'field': 'TTNV', 'value': key_rank[1]}))
             continue
@@ -50,6 +52,27 @@ def import_wishes(file_obj):
         else:
             summary.skipped += 1
     return summary.as_response()
+
+
+def _missing_wish_headers(headers):
+    header_set = set(headers)
+    missing = REQUIRED_WISH_HEADERS - header_set
+    if not WISH_MAJOR_HEADERS & header_set:
+        missing.add('MaXT hoặc MaNganh')
+    if not WISH_RANK_HEADERS & header_set:
+        missing.add('TTNV hoặc ThuTuNV')
+    return missing
+
+
+def _wish_major_id_from_values(values):
+    return _clean(values.get('MaXT')) or _clean(values.get('MaNganh'))
+
+
+def _wish_rank_from_values(values):
+    rank_value = values.get('TTNV')
+    if rank_value is None or _clean(rank_value) == '':
+        rank_value = values.get('ThuTuNV')
+    return _to_int(rank_value)
 
 
 def create_wish_manually(validated_data):
@@ -172,8 +195,8 @@ def serialize_exclusion(exclusion):
 
 def _validate_wish_import_row(row_number, values):
     cccd = _clean_cccd(values.get('CCCD'))
-    major_id = _clean(values.get('MaXT'))
-    rank = _to_int(values.get('TTNV'))
+    major_id = _wish_major_id_from_values(values)
+    rank = _wish_rank_from_values(values)
     if not cccd:
         return RowError(row_number, 'CCCD_REQUIRED', 'CCCD là bắt buộc', {'field': 'CCCD', 'value': cccd})
     if not Candidate.objects.filter(cccd=cccd, is_deleted=False).exists():
@@ -189,8 +212,8 @@ def _validate_wish_import_row(row_number, values):
 
 def _upsert_wish_from_values(values):
     candidate = Candidate.objects.get(cccd=_clean_cccd(values.get('CCCD')), is_deleted=False)
-    rank = _to_int(values.get('TTNV'))
-    major_id = _clean(values.get('MaXT'))
+    rank = _wish_rank_from_values(values)
+    major_id = _wish_major_id_from_values(values)
     wish, created = Aspiration.objects.get_or_create(candidate=candidate, rank=rank, defaults={'major_id': major_id})
     if created:
         _log_wish(wish, ActionsChoices.CREATE)

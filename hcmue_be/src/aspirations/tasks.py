@@ -28,7 +28,8 @@ def _complete_import_batch_from_summary(batch, summary):
     batch.created_count = int(summary.get('created', 0))
     batch.updated_count = int(summary.get('updated', 0))
     batch.error_count = len(summary.get('errors', []))
-    batch.save(update_fields=['status', 'row_count', 'created_count', 'updated_count', 'error_count', 'update_date'])
+    batch.error_details = summary.get('errors', [])
+    batch.save(update_fields=['status', 'row_count', 'created_count', 'updated_count', 'error_count', 'error_details', 'update_date'])
 
 
 @shared_task(name='aspirations.import_data')
