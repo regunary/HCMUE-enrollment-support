@@ -2,6 +2,7 @@
  * English note: Single facade for domain list reads — mock or live via VITE_USE_MOCK.
  */
 import { liveEnrollmentApi } from '../api/liveEnrollmentApi'
+import type { PercentileTablesPayload } from '../api/liveEnrollmentApi'
 import { appEnv } from '../config/env'
 import type { Candidate, Combination, Criteria, Cutoff, Exclusion, Major, Subject, Wish } from '../types/domain'
 import { mockApi } from './mockApi'
@@ -29,6 +30,7 @@ export type EnrollmentDataApi = {
   getExclusions: (params?: PageParams) => Promise<RowListResult<Exclusion>>
   getCriteria: (params?: PageParams) => Promise<RowListResult<Criteria>>
   getCutoffs: () => Promise<Cutoff[]>
+  getPercentileTables?: (params?: { round?: number; percentiles?: number[] }) => Promise<PercentileTablesPayload>
   importCandidates?: (file: File) => Promise<{
     success: boolean
     created: number
@@ -156,6 +158,7 @@ const mixedApi: EnrollmentDataApi = {
   getExclusions: (params) => liveEnrollmentApi.getExclusions(params),
   getCriteria: (params) => liveEnrollmentApi.getCriteria(params),
   getCutoffs: () => mockApi.getCutoffs(),
+  getPercentileTables: (params) => liveEnrollmentApi.getPercentileTables(params),
   importCandidates: (file) => liveEnrollmentApi.importCandidates(file),
   importCombinations: (file) => liveEnrollmentApi.importCombinations(file),
   importSubjects: (file) => liveEnrollmentApi.importSubjects(file),

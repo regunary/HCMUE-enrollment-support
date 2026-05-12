@@ -40,6 +40,7 @@ export const enrollmentEndpoints = {
   criteria: '/api/v1/criteria/',
   criteriaImport: '/api/v1/criteria/import/',
   criteriaImportAsync: '/api/v1/criteria/import-async/',
+  percentileTables: '/api/v1/analytics/percentiles/tables/',
   cutoffs: '/api/v1/cutoffs/',
 } as const
 

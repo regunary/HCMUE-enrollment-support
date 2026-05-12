@@ -63,6 +63,34 @@ type CriteriaApiRow = {
   condition_json?: unknown
 }
 
+export type PercentileTableColumn = {
+  key: string
+  label: string
+  combination_id: string
+  major_combination_id?: number
+}
+
+export type PercentileTableRow = {
+  percentile: number
+  label: string
+  values: Record<string, string | null>
+}
+
+export type PercentileDisplayTable = {
+  title: string
+  columns: PercentileTableColumn[]
+  rows: PercentileTableRow[]
+  major_id?: string
+  major_name?: string
+}
+
+export type PercentileTablesPayload = {
+  round: number
+  percentiles: number[]
+  all: PercentileDisplayTable
+  majors: PercentileDisplayTable[]
+}
+
 function mapMajorApiToRow(row: MajorApiRow): Major & { _pk?: string } {
   const combinations = row.combinations ?? []
   return {
@@ -359,6 +387,22 @@ async function fetchCriteriaFromBackend(params?: PageParams): Promise<PaginatedR
   }
 }
 
+async function fetchPercentileTablesFromBackend(params?: {
+  round?: number
+  percentiles?: number[]
+}): Promise<PercentileTablesPayload> {
+  const query = new URLSearchParams()
+  if (params?.round !== undefined) {
+    query.set('round', String(params.round))
+  }
+  if (params?.percentiles?.length) {
+    query.set('percentiles', params.percentiles.join(','))
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  const raw = await apiGetJson<unknown>(`${enrollmentEndpoints.percentileTables}${suffix}`)
+  return unwrapDataPayload<PercentileTablesPayload>(raw)
+}
+
 function mapCriteriaFormToApiPayload(criteria: Criteria): Record<string, unknown> {
   return {
     major_id: criteria.majorCode,
@@ -439,6 +483,8 @@ export const liveEnrollmentApi = {
   getWishes: (params?: PageParams): Promise<PaginatedResult<Wish>> => fetchWishesFromBackend(params),
   getExclusions: (params?: PageParams): Promise<PaginatedResult<Exclusion>> => fetchExclusionsFromBackend(params),
   getCriteria: (params?: PageParams): Promise<PaginatedResult<Criteria>> => fetchCriteriaFromBackend(params),
+  getPercentileTables: (params?: { round?: number; percentiles?: number[] }): Promise<PercentileTablesPayload> =>
+    fetchPercentileTablesFromBackend(params),
   importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImportAsync, file),
   importCandidateScoresThpt: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.candidateScoresThptImportAsync, file),
