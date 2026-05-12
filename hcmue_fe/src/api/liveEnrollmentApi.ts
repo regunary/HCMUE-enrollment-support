@@ -68,6 +68,7 @@ export type PercentileTableColumn = {
   label: string
   combination_id: string
   major_combination_id?: number
+  major_id?: string
 }
 
 export type PercentileTableRow = {
@@ -82,13 +83,18 @@ export type PercentileDisplayTable = {
   rows: PercentileTableRow[]
   major_id?: string
   major_name?: string
+  combination_id?: string
+  combination_name?: string
+  rank?: number
 }
 
 export type PercentileTablesPayload = {
   round: number
   percentiles: number[]
   all: PercentileDisplayTable
+  wishes: PercentileDisplayTable[]
   majors: PercentileDisplayTable[]
+  combinations: PercentileDisplayTable[]
 }
 
 function mapMajorApiToRow(row: MajorApiRow): Major & { _pk?: string } {
@@ -403,6 +409,17 @@ async function fetchPercentileTablesFromBackend(params?: {
   return unwrapDataPayload<PercentileTablesPayload>(raw)
 }
 
+async function recomputePercentileTablesOnBackend(params?: {
+  round?: number
+  percentiles?: number[]
+}): Promise<unknown> {
+  const raw = await apiPostJson<unknown>(enrollmentEndpoints.percentileRecompute, {
+    round: params?.round ?? 1,
+    percentiles: params?.percentiles ?? [10, 25, 50, 75, 90],
+  })
+  return unwrapDataPayload<unknown>(raw)
+}
+
 function mapCriteriaFormToApiPayload(criteria: Criteria): Record<string, unknown> {
   return {
     major_id: criteria.majorCode,
@@ -485,6 +502,8 @@ export const liveEnrollmentApi = {
   getCriteria: (params?: PageParams): Promise<PaginatedResult<Criteria>> => fetchCriteriaFromBackend(params),
   getPercentileTables: (params?: { round?: number; percentiles?: number[] }): Promise<PercentileTablesPayload> =>
     fetchPercentileTablesFromBackend(params),
+  recomputePercentileTables: (params?: { round?: number; percentiles?: number[] }): Promise<unknown> =>
+    recomputePercentileTablesOnBackend(params),
   importCandidates: (file: File): Promise<ImportSummary> => uploadImportFile(enrollmentEndpoints.candidatesImportAsync, file),
   importCandidateScoresThpt: (file: File): Promise<ImportSummary> =>
     uploadImportFile(enrollmentEndpoints.candidateScoresThptImportAsync, file),

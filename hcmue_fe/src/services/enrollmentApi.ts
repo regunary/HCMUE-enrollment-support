@@ -31,6 +31,7 @@ export type EnrollmentDataApi = {
   getCriteria: (params?: PageParams) => Promise<RowListResult<Criteria>>
   getCutoffs: () => Promise<Cutoff[]>
   getPercentileTables?: (params?: { round?: number; percentiles?: number[] }) => Promise<PercentileTablesPayload>
+  recomputePercentileTables?: (params?: { round?: number; percentiles?: number[] }) => Promise<unknown>
   importCandidates?: (file: File) => Promise<{
     success: boolean
     created: number
@@ -159,6 +160,7 @@ const mixedApi: EnrollmentDataApi = {
   getCriteria: (params) => liveEnrollmentApi.getCriteria(params),
   getCutoffs: () => mockApi.getCutoffs(),
   getPercentileTables: (params) => liveEnrollmentApi.getPercentileTables(params),
+  recomputePercentileTables: (params) => liveEnrollmentApi.recomputePercentileTables(params),
   importCandidates: (file) => liveEnrollmentApi.importCandidates(file),
   importCombinations: (file) => liveEnrollmentApi.importCombinations(file),
   importSubjects: (file) => liveEnrollmentApi.importSubjects(file),

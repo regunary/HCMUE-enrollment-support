@@ -46,16 +46,23 @@ function tablesForMode(payload: PercentileTablesPayload | null, mode: Percentile
   if (!payload) {
     return []
   }
-  if (mode === 'all' || mode === 'combination') {
+  if (mode === 'all') {
     return [payload.all]
   }
-  return payload.majors
+  if (mode === 'wish') {
+    return payload.wishes
+  }
+  if (mode === 'major') {
+    return payload.majors
+  }
+  return payload.combinations
 }
 
 export function PercentilePage() {
   const [mode, setMode] = useState<PercentileMode>('all')
   const [payload, setPayload] = useState<PercentileTablesPayload | null>(null)
   const [loading, setLoading] = useState(false)
+  const [recomputing, setRecomputing] = useState(false)
   const [error, setError] = useState('')
 
   const loadPercentiles = useCallback(async () => {
@@ -80,6 +87,27 @@ export function PercentilePage() {
     }
   }, [])
 
+  const recomputePercentiles = useCallback(async () => {
+    const recompute = enrollmentApi.recomputePercentileTables
+    if (!recompute) {
+      setError('API tính lại bách phân vị chưa được cấu hình.')
+      return
+    }
+    setRecomputing(true)
+    setError('')
+    try {
+      await recompute({
+        round: DEFAULT_ROUND,
+        percentiles: DEFAULT_PERCENTILES,
+      })
+      await loadPercentiles()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tính lại được dữ liệu bách phân vị.')
+    } finally {
+      setRecomputing(false)
+    }
+  }, [loadPercentiles])
+
   useEffect(() => {
     // Existing data pages in this app load on mount; keep the same route behavior here.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -92,12 +120,18 @@ export function PercentilePage() {
     <Card title="Bách phân vị">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Badge>Module tính toán</Badge>
-        <Button variant="secondary" onClick={loadPercentiles} disabled={loading}>
-          {loading ? 'Đang tải...' : 'Tải lại'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={loadPercentiles} disabled={loading || recomputing}>
+            {loading ? 'Đang tải...' : 'Tải lại'}
+          </Button>
+          <Button onClick={recomputePercentiles} disabled={loading || recomputing}>
+            {recomputing ? 'Đang tính...' : 'Tính lại'}
+          </Button>
+        </div>
       </div>
       <p className="text-sm text-muted leading-relaxed mt-3">
-        Dữ liệu được lấy từ API bách phân vị theo snapshot của đợt xét tuyển hiện tại.
+        Dữ liệu được lấy từ API bách phân vị theo snapshot của đợt xét tuyển hiện tại. Tab nguyện vọng tính theo thứ tự NV,
+        tab ngành hiển thị từng ngành, tab tổ hợp hiển thị từng tổ hợp.
       </p>
       <Tabs
         value={mode}
@@ -117,9 +151,8 @@ export function PercentilePage() {
       {!error && !loading
         ? visibleTables.map((table) => (
             <PercentileTable
-              key={table.major_id ?? table.title}
+              key={table.major_id ?? table.combination_id ?? table.rank ?? table.title}
               table={table}
-              heading={mode === 'combination' ? 'Theo tổ hợp' : undefined}
             />
           ))
         : null}
