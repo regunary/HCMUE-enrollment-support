@@ -1,7 +1,6 @@
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
 from rest_framework.response import Response
-from django.core.files.storage import default_storage
 from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
@@ -37,11 +36,8 @@ from src.programs.services import (
 )
 from src.candidates.services import create_import_batch
 from src.imports.pagination import paginated_response_payload
+from src.imports.upload_storage import save_upload_for_task
 from src.programs.tasks import import_program_master_data_task
-
-
-def save_upload_for_task(upload, batch_id):
-    return default_storage.save(f'async-imports/{batch_id}/{upload.name}', upload)
 
 
 def validation_error_response(errors):

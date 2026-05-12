@@ -2,7 +2,6 @@ from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
-from django.core.files.storage import default_storage
 from django.db.models.deletion import ProtectedError
 
 from auth.permissions import IsAdmin
@@ -32,16 +31,13 @@ from src.candidates.services import (
 from core.choices import ScoreTypeChoices
 from src.imports.models import ImportBatch
 from src.imports.pagination import paginated_response_payload
+from src.imports.upload_storage import save_upload_for_task
 from src.candidates.tasks import (
     import_candidate_basic_info_task,
     import_candidate_scores_task,
     import_priority_objects_task,
     import_regions_task,
 )
-
-
-def save_upload_for_task(upload, batch_id):
-    return default_storage.save(f'async-imports/{batch_id}/{upload.name}', upload)
 
 
 def request_user_id(request):

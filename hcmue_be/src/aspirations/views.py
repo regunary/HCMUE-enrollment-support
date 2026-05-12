@@ -1,5 +1,4 @@
 from django.db import IntegrityError
-from django.core.files.storage import default_storage
 
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, get_object_or_404
@@ -23,15 +22,12 @@ from src.aspirations.services import (
 from src.aspirations.tasks import import_aspiration_data_task
 from src.candidates.services import create_import_batch
 from src.imports.pagination import paginated_response_payload
+from src.imports.upload_storage import save_upload_for_task
 from src.programs.views import validation_error_response
 
 
 def conflict_response(detail):
     return Response({'success': False, 'error': 'CONFLICT', 'detail': detail}, status=status.HTTP_409_CONFLICT)
-
-
-def save_upload_for_task(upload, batch_id):
-    return default_storage.save(f'async-imports/{batch_id}/{upload.name}', upload)
 
 
 class WishListCreateView(GenericAPIView):
