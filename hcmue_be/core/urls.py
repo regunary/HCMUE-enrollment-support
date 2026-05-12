@@ -32,4 +32,5 @@ urlpatterns = [
     path('api/v1/wishes/', include(wish_urlpatterns)),
     path('api/v1/exclusions/', include(exclusion_urlpatterns)),
     path('api/v1/criteria/', include(criteria_urlpatterns)),
+    path('api/v1/analytics/', include('src.analytics.urls')),
 ]
