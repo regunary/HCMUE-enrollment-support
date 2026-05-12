@@ -620,7 +620,7 @@ class ImportBatchStatusView(GenericAPIView):
                     'created': batch.created_count,
                     'updated': batch.updated_count,
                     'skipped': max(batch.row_count - batch.created_count - batch.updated_count - batch.error_count, 0),
-                    'errors': [] if batch.error_count == 0 else [{'code': 'IMPORT_FAILED', 'message': 'Import thất bại.'}],
+                    'errors': batch.error_details,
                     'error_count': batch.error_count,
                 },
             }

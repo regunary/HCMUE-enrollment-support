@@ -1106,7 +1106,8 @@ def fail_import_batch(batch, error_count=1):
     """
     batch.status = ImportStatusChoices.FAILED
     batch.error_count = max(int(error_count), 1)
-    batch.save(update_fields=['status', 'error_count', 'update_date'])
+    batch.error_details = [{'code': 'IMPORT_FAILED', 'message': 'Import thất bại.'}]
+    batch.save(update_fields=['status', 'error_count', 'error_details', 'update_date'])
 
 
 def _complete_batch(batch, summary):
@@ -1123,7 +1124,16 @@ def _complete_batch(batch, summary):
     batch.created_count = summary.created
     batch.updated_count = summary.updated
     batch.error_count = len(summary.errors)
-    batch.save(update_fields=['status', 'row_count', 'created_count', 'updated_count', 'error_count', 'update_date'])
+    batch.error_details = [error.as_dict() for error in summary.errors]
+    batch.save(update_fields=[
+        'status',
+        'row_count',
+        'created_count',
+        'updated_count',
+        'error_count',
+        'error_details',
+        'update_date',
+    ])
 
 
 def _fail_batch(batch, summary, code, message):
@@ -1143,7 +1153,8 @@ def _fail_batch(batch, summary, code, message):
     summary.errors.append(RowError(1, code, message))
     batch.status = ImportStatusChoices.FAILED
     batch.error_count = 1
-    batch.save(update_fields=['status', 'error_count', 'update_date'])
+    batch.error_details = [error.as_dict() for error in summary.errors]
+    batch.save(update_fields=['status', 'error_count', 'error_details', 'update_date'])
     return summary.as_response()
 
 

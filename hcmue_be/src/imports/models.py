@@ -14,6 +14,7 @@ class ImportBatch(AuditModel):
     created_count = models.PositiveIntegerField(default=0)
     updated_count = models.PositiveIntegerField(default=0)
     error_count   = models.PositiveIntegerField(default=0)
+    error_details = models.JSONField(default=list, blank=True)
     is_deleted    = models.BooleanField(default=False)
     deleted_at    = models.DateTimeField(null=True, blank=True)
 
