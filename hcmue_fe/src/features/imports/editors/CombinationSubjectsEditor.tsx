@@ -7,8 +7,6 @@ type CombinationSubjectsEditorProps = {
   onMapChange: (nextMap: CombinationDraftMap) => void
 }
 
-const EPS = 1e-6
-
 function parseWeightsSum(map: CombinationDraftMap): number {
   let sum = 0
   let hasAny = false
@@ -30,17 +28,16 @@ export function CombinationSubjectsEditor({ options, map, onMapChange }: Combina
   const selectedIds = Object.keys(map)
   const selectedCount = selectedIds.length
   const weightSum = parseWeightsSum(map)
-  const sumOk = Number.isFinite(weightSum) && Math.abs(weightSum - 1) <= EPS
+  const sumOk = Number.isFinite(weightSum) && weightSum > 0
 
-  const applyEqualThirds = () => {
+  const applyUnitWeights = () => {
     const ids = Object.keys(map)
     if (ids.length !== 3) {
       return
     }
-    const third = `${1 / 3}`
     const nextMap: CombinationDraftMap = {}
     ids.forEach((id) => {
-      nextMap[id] = third
+      nextMap[id] = '1'
     })
     onMapChange(nextMap)
   }
@@ -78,7 +75,7 @@ export function CombinationSubjectsEditor({ options, map, onMapChange }: Combina
                     if (afterCount === 3) {
                       const ids = Object.keys(nextMap)
                       ids.forEach((id) => {
-                        nextMap[id] = `${1 / 3}`
+                        nextMap[id] = '1'
                       })
                     }
                   } else {
@@ -91,7 +88,7 @@ export function CombinationSubjectsEditor({ options, map, onMapChange }: Combina
             </label>
             <NumberInput
               value={weightValue}
-              placeholder="VD: 0.34"
+              placeholder="VD: 1"
               onChange={(next) => {
                 if (!Object.prototype.hasOwnProperty.call(map, item.id)) {
                   return
@@ -107,7 +104,7 @@ export function CombinationSubjectsEditor({ options, map, onMapChange }: Combina
       })}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className={`text-xs m-0 ${sumOk ? 'text-muted' : 'text-amber-700'}`}>
-          Bắt buộc đúng 3 môn. Tổng trọng số phải bằng 1
+          Bắt buộc đúng 3 môn. Tổng trọng số phải lớn hơn 0
           {Number.isFinite(weightSum) ? (
             <>
               {' '}
@@ -119,8 +116,8 @@ export function CombinationSubjectsEditor({ options, map, onMapChange }: Combina
           .
         </p>
         {selectedCount === 3 ? (
-          <Button type="button" variant="secondary" onClick={applyEqualThirds}>
-            Chia đều ⅓
+          <Button type="button" variant="secondary" onClick={applyUnitWeights}>
+            Hệ số 1
           </Button>
         ) : null}
       </div>

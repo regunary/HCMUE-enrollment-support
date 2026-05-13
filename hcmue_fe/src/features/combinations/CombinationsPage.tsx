@@ -69,7 +69,7 @@ export function CombinationsPage() {
   return (
     <ImportEntityPage
       title="Nhập tổ hợp xét tuyển"
-      description="Theo hồ sơ: mỗi tổ hợp có đúng 3 môn (M1–M3) và 3 trọng số; tổng trọng số phải bằng 1."
+      description="Theo hồ sơ: mỗi tổ hợp có đúng 3 môn (M1–M3) và 3 trọng số; điểm tổ hợp là tổng điểm môn nhân hệ số."
       fields={COMBINATION_FIELDS}
       rowSchema={combinationSchema}
       getRows={enrollmentApi.getCombinations}
@@ -83,9 +83,9 @@ export function CombinationsPage() {
           Mon1: 'TO',
           Mon2: 'LI',
           Mon3: 'HO',
-          TrongSo1: 0.34,
-          TrongSo2: 0.33,
-          TrongSo3: 0.33,
+          TrongSo1: 1,
+          TrongSo2: 1,
+          TrongSo3: 1,
         },
       ]}
     />

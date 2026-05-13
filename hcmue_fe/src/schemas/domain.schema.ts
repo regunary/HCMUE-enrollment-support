@@ -58,6 +58,13 @@ export const combinationSchema = z
       return
     }
 
+    if (weights.reduce((sum, value) => sum + value, 0) <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tổng trọng số phải lớn hơn 0.',
+        path: ['weights'],
+      })
+    }
   })
 
 export const subjectSchema = z.object({

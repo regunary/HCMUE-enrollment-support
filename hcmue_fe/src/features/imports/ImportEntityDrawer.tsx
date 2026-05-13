@@ -151,8 +151,8 @@ export function ImportEntityDrawer(props: ImportEntityDrawerProps) {
                   <span className="font-medium text-primary ml-1 tabular-nums">
                     {combinationWeightSum !== null ? combinationWeightSum.toFixed(4) : '—'}
                   </span>
-                  {combinationWeightSum !== null && Math.abs(combinationWeightSum - 1) > 1e-6 ? (
-                    <span className="text-amber-700 ml-2">(theo hồ sơ nên = 1)</span>
+                  {combinationWeightSum !== null && combinationWeightSum <= 0 ? (
+                    <span className="text-amber-700 ml-2">(phải lớn hơn 0)</span>
                   ) : null}
                 </span>
               </div>

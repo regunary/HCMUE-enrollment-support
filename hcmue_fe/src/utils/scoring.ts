@@ -23,8 +23,7 @@ export function calcCombinationScore(candidate: Candidate, combination: Combinat
     const weight = weights[index] ?? 1
     return sum + value * weight
   }, 0)
-  const denominator = weights.reduce((sum, weight) => sum + (Number.isFinite(weight) ? weight : 1), 0) || 1
-  return Number((numerator / denominator).toFixed(2))
+  return Number(numerator.toFixed(2))
 }
 
 export function enumerateCombinationsFor(candidate: Candidate, combinations: Combination[]) {
