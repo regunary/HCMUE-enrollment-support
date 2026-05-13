@@ -101,7 +101,7 @@ Với từng thí sinh, backend tính điểm theo các môn trong `major_combin
 Công thức điểm tổ hợp:
 
 ```text
-weighted_score = SUM(subject_score * weight) / SUM(weight)
+weighted_score = SUM(subject_score * weight)
 ```
 
 Sau đó cộng thêm:
