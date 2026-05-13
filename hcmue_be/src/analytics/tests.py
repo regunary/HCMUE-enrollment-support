@@ -80,10 +80,10 @@ class MajorCombinationPercentileApiTests(TestCase):
             percentile=50,
             round=1,
         )
-        self.assertEqual(math_snapshot.score, Decimal('8.00'))
-        self.assertEqual(physics_snapshot.score, Decimal('9.00'))
-        self.assertEqual(response.data['data'][0]['points'][0]['score'], '8.00')
-        self.assertEqual(response.data['data'][1]['points'][0]['score'], '9.00')
+        self.assertEqual(math_snapshot.score, Decimal('24.00'))
+        self.assertEqual(physics_snapshot.score, Decimal('25.00'))
+        self.assertEqual(response.data['data'][0]['points'][0]['score'], '24.00')
+        self.assertEqual(response.data['data'][1]['points'][0]['score'], '25.00')
 
     def test_percentile_tables_pivots_columns_by_combination_and_tables_by_major(self):
         self.client.post(
@@ -99,7 +99,7 @@ class MajorCombinationPercentileApiTests(TestCase):
         self.assertEqual(response.data['data']['all']['title'], 'Tất cả ngành')
         self.assertEqual(response.data['data']['all']['columns'][0]['key'], 'A00')
         self.assertEqual(response.data['data']['all']['rows'][0]['percentile'], 50)
-        self.assertEqual(response.data['data']['all']['rows'][0]['values']['A00'], '8.50')
+        self.assertEqual(response.data['data']['all']['rows'][0]['values']['A00'], '24.50')
         self.assertEqual(len(response.data['data']['majors']), 2)
         self.assertEqual(len(response.data['data']['wishes']), 2)
         self.assertEqual(len(response.data['data']['combinations']), 1)
@@ -108,21 +108,21 @@ class MajorCombinationPercentileApiTests(TestCase):
         self.assertEqual(math_table['major_id'], '7140209')
         self.assertEqual(math_table['columns'][0]['key'], str(self.math_major_combination.id))
         self.assertEqual(math_table['columns'][0]['combination_id'], 'A00')
-        self.assertEqual(math_table['rows'][0]['values'][str(self.math_major_combination.id)], '8.00')
+        self.assertEqual(math_table['rows'][0]['values'][str(self.math_major_combination.id)], '24.00')
         self.assertEqual(physics_table['major_id'], '7140211')
-        self.assertEqual(physics_table['rows'][0]['values'][str(self.physics_major_combination.id)], '9.00')
+        self.assertEqual(physics_table['rows'][0]['values'][str(self.physics_major_combination.id)], '25.00')
         wish_one_table = response.data['data']['wishes'][0]
         wish_two_table = response.data['data']['wishes'][1]
         self.assertEqual(wish_one_table['rank'], 1)
-        self.assertEqual(wish_one_table['rows'][0]['values']['A00'], '8.00')
+        self.assertEqual(wish_one_table['rows'][0]['values']['A00'], '24.00')
         self.assertEqual(wish_two_table['rank'], 2)
-        self.assertEqual(wish_two_table['rows'][0]['values']['A00'], '9.00')
+        self.assertEqual(wish_two_table['rows'][0]['values']['A00'], '25.00')
         combination_table = response.data['data']['combinations'][0]
         self.assertEqual(combination_table['combination_id'], 'A00')
         self.assertEqual(combination_table['columns'][0]['label'], '7140209')
-        self.assertEqual(combination_table['rows'][0]['values'][str(self.math_major_combination.id)], '8.00')
+        self.assertEqual(combination_table['rows'][0]['values'][str(self.math_major_combination.id)], '24.00')
         self.assertEqual(combination_table['columns'][1]['label'], '7140211')
-        self.assertEqual(combination_table['rows'][0]['values'][str(self.physics_major_combination.id)], '9.00')
+        self.assertEqual(combination_table['rows'][0]['values'][str(self.physics_major_combination.id)], '25.00')
 
     def _create_candidate(self, cccd, score, majors):
         candidate = Candidate.objects.create(cccd=cccd)

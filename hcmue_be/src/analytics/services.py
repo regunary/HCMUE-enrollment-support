@@ -43,7 +43,7 @@ def calculate_candidate_score_for_major_combination(candidate, major_combination
         for board in candidate.score_boards.all()
     }
     numerator = Decimal('0')
-    denominator = Decimal('0')
+    total_weight = Decimal('0')
 
     for entry in major_combination.subject_combination.subjects.all():
         board = score_boards.get(entry.score_type)
@@ -56,12 +56,12 @@ def calculate_candidate_score_for_major_combination(candidate, major_combination
         if subject_score is None or subject_score.score is None:
             return None
         numerator += subject_score.score * entry.weight
-        denominator += entry.weight
+        total_weight += entry.weight
 
-    if denominator == 0:
+    if total_weight == 0:
         return None
 
-    score = numerator / denominator
+    score = numerator
     score += major_combination.score_offset
     priority = getattr(candidate, 'region_priority', None)
     if priority is not None:

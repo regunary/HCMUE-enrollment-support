@@ -51,7 +51,7 @@ class CombinationSubject(AuditModel):
       (A00_CB_T, LI, weight=1.0, score_type=THPT, position=2)
       (A00_CB_T, HO, weight=1.0, score_type=THPT, position=3)
 
-    Score formula: SUM(score_i * weight_i) / SUM(weight_i)
+    Score formula: SUM(score_i * weight_i)
     """
     subject_combination = models.ForeignKey(SubjectCombination, on_delete=models.CASCADE, related_name='subjects')
     subject             = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='combination_entries')

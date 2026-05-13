@@ -534,7 +534,7 @@ FOR EACH ROW EXECUTE FUNCTION log_subject_combination_update();
 --   (A00_CB_T, LI, 1.0, 'THPT', 2)  ← Lý từ thi THPT quốc gia
 --   (A00_CB_T, HO, 1.0, 'THPT', 3)  ← Hóa từ thi THPT quốc gia
 --
--- Score formula: SUM(score_i * weight_i) / SUM(weight_i)
+-- Score formula: SUM(score_i * weight_i)
 -- ------------------------------------------------------------
 CREATE TABLE combination_subject (
     id                     SERIAL          PRIMARY KEY,
