@@ -625,7 +625,7 @@ FOR EACH ROW EXECUTE FUNCTION log_combination_subject_update();
 -- major (ngành)
 -- ------------------------------------------------------------
 CREATE TABLE major (
-    id            CHAR(10)     PRIMARY KEY,   -- 7140101
+    id            VARCHAR(50)  PRIMARY KEY,   -- 7140101
     name          VARCHAR(200) NOT NULL,
     quota         INTEGER      NULL CHECK (quota > 0),
     action        actions      DEFAULT 'create',
@@ -638,7 +638,7 @@ CREATE INDEX idx_major_id ON major(id);
 
 CREATE TABLE major_log (
     id          SERIAL       PRIMARY KEY,
-    major_id    CHAR(10)     REFERENCES major(id) ON DELETE CASCADE,
+    major_id    VARCHAR(50)  REFERENCES major(id) ON DELETE CASCADE,
     name        VARCHAR(200) NOT NULL,
     quota       INTEGER      NULL,
     action      actions      NOT NULL,
@@ -703,7 +703,7 @@ FOR EACH ROW EXECUTE FUNCTION log_major_update();
 -- ------------------------------------------------------------
 CREATE TABLE major_combination (
     id                     SERIAL        PRIMARY KEY,
-    major_id               CHAR(10)      NOT NULL REFERENCES major(id) ON DELETE CASCADE,
+    major_id               VARCHAR(50)   NOT NULL REFERENCES major(id) ON DELETE CASCADE,
     subject_combination_id VARCHAR(20)   NOT NULL REFERENCES subject_combination(id) ON DELETE RESTRICT,
     min_score              NUMERIC(5, 2) NOT NULL DEFAULT 0,   -- DiemSan
     dgnl_offset            NUMERIC(4, 2) NOT NULL DEFAULT 0,   -- dolech: DGNL score adjustment
@@ -721,7 +721,7 @@ CREATE INDEX idx_major_combination_combination  ON major_combination(subject_com
 CREATE TABLE major_combination_log (
     id                     SERIAL        PRIMARY KEY,
     major_combination_id   INTEGER       REFERENCES major_combination(id) ON DELETE CASCADE,
-    major_id               CHAR(10)      NOT NULL,
+    major_id               VARCHAR(50)   NOT NULL,
     subject_combination_id VARCHAR(20)   NOT NULL,
     min_score              NUMERIC(5, 2) NOT NULL,
     dgnl_offset            NUMERIC(4, 2) NOT NULL,

@@ -25,7 +25,7 @@ class Aspiration(AuditModel):
 class AspirationLog(models.Model):
     aspiration           = models.ForeignKey(Aspiration, on_delete=models.SET_NULL, null=True, blank=True, db_column='aspiration_id')
     candidate_id         = models.UUIDField()
-    major_id             = models.CharField(max_length=10)
+    major_id             = models.CharField(max_length=50)
     rank                 = models.PositiveSmallIntegerField()
     computed_score       = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     action               = models.CharField(max_length=10, choices=ActionsChoices.choices)

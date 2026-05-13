@@ -85,7 +85,7 @@ class CombinationSubjectLog(models.Model):
 
 
 class Major(AuditModel):
-    id    = models.CharField(max_length=10, primary_key=True)  # 7140101
+    id    = models.CharField(max_length=50, primary_key=True)  # 7140101
     name  = models.CharField(max_length=200)
     quota = models.PositiveIntegerField(null=True, blank=True)
 
@@ -124,7 +124,7 @@ class MajorCombination(AuditModel):
 
 class MajorCombinationLog(models.Model):
     major_combination      = models.ForeignKey(MajorCombination, on_delete=models.SET_NULL, null=True, blank=True, db_column='major_combination_id')
-    major_id               = models.CharField(max_length=10)
+    major_id               = models.CharField(max_length=50)
     subject_combination_id = models.CharField(max_length=20)
     min_score              = models.DecimalField(max_digits=5, decimal_places=2)
     score_offset           = models.DecimalField(max_digits=4, decimal_places=2)

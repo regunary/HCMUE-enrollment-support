@@ -10,7 +10,7 @@ class ImportFileSerializer(serializers.Serializer):
 
 class WishManualSerializer(serializers.Serializer):
     cccd = serializers.CharField(required=False, max_length=12)
-    major_id = serializers.CharField(required=False, max_length=10)
+    major_id = serializers.CharField(required=False, max_length=50)
     rank = serializers.IntegerField(required=False, min_value=1)
 
     def validate_cccd(self, value):

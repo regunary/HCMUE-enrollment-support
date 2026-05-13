@@ -333,10 +333,25 @@ class MajorAndCriteriaApiTests(TestCase):
         self.assertTrue(primary_entry.is_primary)
         self.assertFalse(secondary_entry.is_primary)
 
-    def test_import_majors_rejects_major_code_longer_than_model_limit(self):
+    def test_import_majors_accepts_major_code_up_to_model_limit(self):
+        major_id = 'M' * 50
         file = make_xlsx(
             ['MaXT', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech', 'Goc'],
-            [['71401010000', 'Su pham Toan', 'A00', 18, 0.5, 1]],
+            [[major_id, 'Su pham Toan', 'A00', 18, 0.5, 1]],
+        )
+
+        response = self.client.post('/api/v1/majors/import/', {'file': file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['created'], 2)
+        self.assertEqual(response.data['errors'], [])
+        self.assertTrue(Major.objects.filter(id=major_id).exists())
+
+    def test_import_majors_rejects_major_code_longer_than_model_limit(self):
+        major_id = 'M' * 51
+        file = make_xlsx(
+            ['MaXT', 'TenNganh', 'MaTH', 'DiemSan', 'DiemLech', 'Goc'],
+            [[major_id, 'Su pham Toan', 'A00', 18, 0.5, 1]],
         )
 
         response = self.client.post('/api/v1/majors/import/', {'file': file}, format='multipart')
@@ -353,7 +368,7 @@ class MajorAndCriteriaApiTests(TestCase):
             'created': 0,
             'updated': 0,
             'skipped': 0,
-            'errors': [{'row': 2, 'code': 'MAJOR_CODE_TOO_LONG', 'message': 'MaXT tối đa 10 ký tự'}],
+            'errors': [{'row': 2, 'code': 'MAJOR_CODE_TOO_LONG', 'message': 'MaXT tối đa 50 ký tự'}],
         }
 
         _complete_import_batch_from_summary(batch, summary)

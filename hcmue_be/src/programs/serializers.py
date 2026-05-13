@@ -151,7 +151,7 @@ class MajorCombinationInputSerializer(serializers.Serializer):
 
 
 class MajorManualSerializer(serializers.Serializer):
-    id = serializers.CharField(required=False, max_length=10)
+    id = serializers.CharField(required=False, max_length=50)
     name = serializers.CharField(required=False, max_length=200)
     quota = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     combinations = MajorCombinationInputSerializer(many=True, required=False)
@@ -191,7 +191,7 @@ class MajorManualSerializer(serializers.Serializer):
 
 
 class AdmissionConditionManualSerializer(serializers.Serializer):
-    major_id = serializers.CharField(required=False, max_length=10)
+    major_id = serializers.CharField(required=False, max_length=50)
     combination_id = serializers.CharField(required=False, max_length=20)
     subject_id = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=10)
     min_subject_score = serializers.DecimalField(max_digits=4, decimal_places=2, required=False, allow_null=True, min_value=0)
